@@ -22,9 +22,17 @@
 - 나무위치 한국어 코딩언어
 https://namu.wiki/w/%ED%95%9C%EA%B8%80%20%ED%94%84%EB%A1%9C%EA%B7%B8%EB%9E%98%EB%B0%8D%20%EC%96%B8%EC%96%B4
 
+http://no-smok.net/nsmk/%ED%95%9C%EA%B8%80%ED%94%84%EB%A1%9C%EA%B7%B8%EB%9E%98%EB%B0%8D%EC%96%B8%EC%96%B4
+
 
 - 기존 한글 프로그래밍 언어
     - 말씨
         - https://recu3125.github.io/malC_lang/
         - https://github.com/recu3125/malC_lang
     - 씨앗
+        - https://blog.naver.com/PostView.nhn?blogId=tkandrea92&logNo=80018209101&parentCategoryNo=&categoryNo=&viewDate=&isShowPopularPosts=false&from=postView
+    - 두리틀
+    - 한플
+    - 도깨비
+        - https://github.com/BackGwa/DoKev
+    - 
