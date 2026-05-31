@@ -1,19 +1,13 @@
-"use client";
+import { tokenize } from './compiler/lexer';
+import { Parser } from './compiler/parser';
+import { Interpreter } from './interpreter/interpreter';
 
-import Compiler from "./compiler/compiler";
-import Interpreter from "./interpreter/interpreter";
-
-export default function Hanlang() {
-    
-    // 실제 실행 함수.
-    const run = function( code : string ) {
-        return "";
-    }
-
-    // compile 에러를 체크하는 함수.
-    const review = function( code : string ) {
-
-    }
-
-    return 0;
+export function run(code: string): string {
+  try {
+    const tokens = tokenize(code);
+    const ast = new Parser(tokens).parse();
+    return new Interpreter().run(ast);
+  } catch (e) {
+    return `[오류] ${e instanceof Error ? e.message : String(e)}\n`;
+  }
 }

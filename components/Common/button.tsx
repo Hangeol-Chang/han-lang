@@ -53,7 +53,7 @@ export default function Button({className, onClick, value, color} : ButtonProps)
                 m-1 px-1
                 rounded rounded-sm
             ${className}`}
-            onClick={() => onClick}
+            onClick={() => onClick()}
 
             style={{
                 outlineColor: '#111111',

@@ -1,152 +1,153 @@
 "use client";
 
 import { codeState } from "../../states/codeStates";
+import { outputState } from "../../states/outputState";
+import { run } from "../core/hanlang";
 import { KeyboardEvent, useEffect, useState, useRef } from "react";
-import { useRecoilState } from "recoil"
+import { useRecoilState, useSetRecoilState } from "recoil";
 
 import Button from "../Common/button";
-// import Button from "../common/Button";
+import Link from "next/link";
 
 export default function Editor() {
-    const [code, setCode] = useRecoilState(codeState);
-    const [lineChange, setLineChange] = useState(0);
-    // 현재 커서의 line number
-    const [nowCursor, setNowCursor] = useState(0);
-    const [rows, setRows] = useState([1]);
-    const [cursorLine, setCursorLine] = useState(1);
-    const [codeSplited, setCodeSplited] = useState<string[]>([]);
+  const [code, setCode] = useRecoilState(codeState);
+  const setOutput = useSetRecoilState(outputState);
+  const [rows, setRows] = useState([1]);
+  const [cursorLine, setCursorLine] = useState(1);
+  const [codeSplited, setCodeSplited] = useState<string[]>(['']);
 
-    const inputRef = useRef<HTMLTextAreaElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
-    useEffect(() => {
-        setCodeSplited(code.split('\n'));
+  useEffect(() => {
+    const lines = code.split('\n');
+    setCodeSplited(lines);
+    setRows(lines.map((_, i) => i + 1));
+  }, [code]);
 
-        const lineCount = codeSplited.length
-        codeSplited[lineCount-1]
-        let lines : number[] = []
-        for (let i = 1 ; i <= lineCount; i++) {
-            lines.push(i)
-        }
-        setRows(lines)
+  const getCursorLine = (): number => {
+    if (!inputRef.current) return 1;
+    const cursorPos = inputRef.current.selectionStart;
+    const before = code.slice(0, cursorPos);
+    return before.split('\n').length;
+  };
 
+  const handleClick = () => {
+    setCursorLine(getCursorLine());
+  };
 
-    }, [code])
-
-    const handleClickEvent = function() {
-        // const ele = e.target;
-        if(inputRef.current) {
-            let cursorLoc = inputRef.current.selectionStart;
-            // codeSplited에서 line별로 저거 저장.
-            let charCount = -1;
-            let line = 0;
-            console.log("cursorLoc", cursorLoc);
-            while(charCount < cursorLoc) {
-                // console.log(codeSplited[line].length)
-                charCount += codeSplited[line++].length + 1;
-            }
-            setCursorLine(line);
-        }
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const el = inputRef.current!;
+      const start = el.selectionStart;
+      const end = el.selectionEnd;
+      const next = code.slice(0, start) + '\t' + code.slice(end);
+      setCode(next);
+      // Restore cursor after state update
+      requestAnimationFrame(() => {
+        el.selectionStart = el.selectionEnd = start + 1;
+      });
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const el = inputRef.current!;
+      const start = el.selectionStart;
+      // Auto-indent: count leading tabs on current line
+      const lineIdx = code.slice(0, start).split('\n').length - 1;
+      const currentLine = codeSplited[lineIdx] ?? '';
+      const tabs = currentLine.match(/^\t*/)?.[0] ?? '';
+      const next = code.slice(0, start) + '\n' + tabs + code.slice(start);
+      setCode(next);
+      requestAnimationFrame(() => {
+        el.selectionStart = el.selectionEnd = start + 1 + tabs.length;
+      });
+    } else if (e.key.startsWith('Arrow')) {
+      setCursorLine(getCursorLine());
     }
+  };
 
-    useEffect(() => {
-        console.log(cursorLine);
-    }, [cursorLine])
+  const handleRun = () => {
+    setOutput(run(code));
+  };
 
-    const handleKeyEvent = function(e : KeyboardEvent) {
-        console.log(e.key);
-        
-        // Tab 엘리멘트 변경 방지
-        if(e.key === "Tab") {
-            e.preventDefault();
-            
-            // lineLoc 전까지 더함.
-            let loc = 0;
-            console.log("line : ", cursorLine);
-            for (let i = 0; i < cursorLine - 1; i++ ) {
-                loc += codeSplited[i].length + 1;
-            }
-            console.log(loc)
-            setCode(code.substring(0, loc) + '\t' + code.substring(loc));
+  const handleClear = () => {
+    setOutput('');
+  };
 
-            // 커서가 마지막으로 움직이는 거 막아야되는데, 잘 안됨.
-            if(inputRef.current)
-                inputRef.current.selectionEnd = loc;
-        }
-        else if (e.key === "Enter") {
-
-            // 이거에서 탭 수 계산하면 됨.
-            let nowLineString = codeSplited[cursorLine - 1];
-            handleClickEvent();
-            // Tab 수에 맞게 엔터시 들여쓰기 해주는 코드 작성.
-        }
-        else if (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "ArrowUp" || e.key === "ArrowDown") {
-            // 이 상태에서 handleClick을 호출할 때, inputRef가 최신화되어있지 않는 이슈가 있음.
-            handleClickEvent();
-        }
-        else {
-            
-        }
-    }
-
-
-    // css part
-    const IdeStyle = {
-
-    } as React.CSSProperties;
-
-    const ButtonContainerStyle = {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', width: '50%' }}>
+      <div style={{
         display: 'flex',
         justifyContent: 'space-between',
-    } as React.CSSProperties;
-
-    const EditorStyle = {
-        backgroundColor : '#aaaaaa',
-        display : 'flex',
-        height : window.innerHeight * 0.5,
-    } as React.CSSProperties;
-    
-    const IndexStyle = {
-        backgroundColor : '#CCCCCC',
-        display : 'flex',
-        flexDirection : 'column',
-        fontSize : 14,
-        width : 30,
-    } as React.CSSProperties;
-
-    // 두 개에 동시에 스크롤이 적용되도록 해야함.
-    // 글자 크기 다름 이슈
-    return (
-        <div style={IdeStyle}>
-            <div style={ButtonContainerStyle}>
-                <Button color="primary" value="view docs" className={""} onClick={() => {}}/>
-                <Button color="primary" value="Debug" className={""} onClick={() => {}}/>
-                <Button color="primary" value="Run" className={""} onClick={() => {}}/>
-            </div>
-
-            <div className={``} style={EditorStyle} >
-
-                <div className={``} style={IndexStyle} >
-                    {
-                        rows.map( v => {
-                            return <span key={v} >{ ("00" + v).slice(-3) }</span>
-                        })
-                    }
-                </div>
-                <textarea value={code} ref={inputRef}
-                    onChange={(e) => setCode(e.target.value)}
-                    onClick={(e) => handleClickEvent()}
-
-                    onKeyDown={(e) => handleKeyEvent(e)}
-                    className={
-                        `h-full px-2`
-                    }
-                    style={{
-                        resize : 'none',
-                    }}
-                >
-                    
-                </textarea>
-            </div>
+        backgroundColor: '#333',
+        padding: '2px 4px',
+      }}>
+        <span style={{ color: '#ccc', fontSize: 13, lineHeight: '28px', paddingLeft: 4 }}>
+          편집기
+        </span>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <Link href="/docs" style={{
+            color: '#aaa',
+            fontSize: 13,
+            margin: '0 6px',
+            textDecoration: 'none',
+          }}>
+            문서 보기
+          </Link>
+          <Button color="primary" value="지우기" className="" onClick={handleClear} />
+          <Button color="success" value="▶ 실행" className="" onClick={handleRun} />
         </div>
-    )
+      </div>
+
+      <div style={{
+        display: 'flex',
+        flex: 1,
+        backgroundColor: '#2b2b2b',
+        minHeight: '50vh',
+      }}>
+        {/* Line numbers */}
+        <div style={{
+          backgroundColor: '#252525',
+          color: '#666',
+          fontFamily: 'monospace',
+          fontSize: 14,
+          lineHeight: '21px',
+          padding: '8px 6px',
+          textAlign: 'right',
+          userSelect: 'none',
+          minWidth: 36,
+        }}>
+          {rows.map(n => (
+            <div key={n} style={{ color: n === cursorLine ? '#aaa' : '#555' }}>
+              {n}
+            </div>
+          ))}
+        </div>
+
+        {/* Code textarea */}
+        <textarea
+          ref={inputRef}
+          value={code}
+          onChange={e => setCode(e.target.value)}
+          onClick={handleClick}
+          onKeyDown={handleKeyDown}
+          spellCheck={false}
+          style={{
+            flex: 1,
+            backgroundColor: '#2b2b2b',
+            color: '#e8e8e8',
+            fontFamily: 'monospace',
+            fontSize: 14,
+            lineHeight: '21px',
+            padding: '8px',
+            border: 'none',
+            outline: 'none',
+            resize: 'none',
+            whiteSpace: 'pre',
+            overflowWrap: 'normal',
+            overflowX: 'auto',
+          }}
+        />
+      </div>
+    </div>
+  );
 }

@@ -1,25 +1,13 @@
-import Editor from '../../components/main/editor'
-import Terminal from '../../components/main/terminal'
-import styles from './page.module.css'
+import Editor from '../../components/main/editor';
+import Terminal from '../../components/main/terminal';
 
 export default function Home() {
-    
-    const MainStyle = {
-        display : 'flex',
-        justifyContent : 'center'
-        
-    } as React.CSSProperties;
-
-    return (
-        <main className={``}
-            style={{backgroundColor: '#eee'}}>
-            hello world
-            <div className={``} style={MainStyle} >
-                <Editor />
-                <Terminal />
-            </div>
-            
-            <a href={`/log`}>devlog</a>
-        </main>
-    )
+  return (
+    <main style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        <Editor />
+        <Terminal />
+      </div>
+    </main>
+  );
 }
