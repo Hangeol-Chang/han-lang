@@ -101,3 +101,8 @@
 
  철수/가 개/에게 사과/를 먹여!
 ```
+
+
+### 4. 약속
+#### 링크
+- https://web.archive.org/web/20230428054357/http://yaksok.org/specification.html

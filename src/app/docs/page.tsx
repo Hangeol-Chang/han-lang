@@ -1,7 +1,5 @@
-export default function Home() {
-  return (
-    <main className={``}>
-        this is document page
-    </main>
-  )
+import Docsview from '../../../components/docs/docsview';
+
+export default function DocsPage() {
+    return <Docsview />;
 }
