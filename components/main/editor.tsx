@@ -74,40 +74,40 @@ export default function Editor() {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', width: '50%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
       <div style={{
         display: 'flex',
         justifyContent: 'space-between',
-        backgroundColor: '#333',
+        backgroundColor: 'var(--bg-panel)',
         padding: '2px 4px',
       }}>
-        <span style={{ color: '#ccc', fontSize: 13, lineHeight: '28px', paddingLeft: 4 }}>
+        <span style={{ color: 'var(--text-secondary)', fontSize: 13, lineHeight: '28px', paddingLeft: 4 }}>
           편집기
         </span>
         <div style={{ display: 'flex', alignItems: 'center' }}>
           <Link href="/docs" style={{
-            color: '#aaa',
+            color: 'var(--text-secondary)',
             fontSize: 13,
             margin: '0 6px',
             textDecoration: 'none',
           }}>
             문서 보기
           </Link>
-          <Button color="primary" value="지우기" className="" onClick={handleClear} />
-          <Button color="success" value="▶ 실행" className="" onClick={handleRun} />
+          <Button variant="default" onClick={handleClear} style={{ marginRight: 4 }}>지우기</Button>
+          <Button variant="success" onClick={handleRun}>▶ 실행</Button>
         </div>
       </div>
 
       <div style={{
         display: 'flex',
         flex: 1,
-        backgroundColor: '#2b2b2b',
-        minHeight: '50vh',
+        backgroundColor: 'var(--bg-surface)',
+        minHeight: 0,
       }}>
         {/* Line numbers */}
         <div style={{
-          backgroundColor: '#252525',
-          color: '#666',
+          backgroundColor: 'var(--bg-panel)',
+          color: 'var(--text-muted)',
           fontFamily: 'monospace',
           fontSize: 14,
           lineHeight: '21px',
@@ -117,7 +117,7 @@ export default function Editor() {
           minWidth: 36,
         }}>
           {rows.map(n => (
-            <div key={n} style={{ color: n === cursorLine ? '#aaa' : '#555' }}>
+            <div key={n} style={{ color: n === cursorLine ? 'var(--text-secondary)' : 'var(--text-muted)' }}>
               {n}
             </div>
           ))}
@@ -133,8 +133,8 @@ export default function Editor() {
           spellCheck={false}
           style={{
             flex: 1,
-            backgroundColor: '#2b2b2b',
-            color: '#e8e8e8',
+            backgroundColor: 'var(--bg-surface)',
+            color: 'var(--text-primary)',
             fontFamily: 'monospace',
             fontSize: 14,
             lineHeight: '21px',

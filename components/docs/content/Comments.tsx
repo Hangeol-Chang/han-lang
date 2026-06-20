@@ -6,7 +6,7 @@ export default function Comments() {
     return (
         <article>
             <h1>주석</h1>
-            <p>주석은 실행되지 않는 설명 메모입니다. <code>//</code>로 시작하는 줄 이후는 모두 무시됩니다.</p>
+            <p>주석은 실행되지 않는 설명 메모입니다. <code>{'//'}</code>로 시작하는 줄 이후는 모두 무시됩니다.</p>
 
             <h2>한 줄 주석</h2>
             <CodeBlock>{`// 이 줄은 실행되지 않습니다
@@ -30,8 +30,8 @@ i는 1 이다.
             <CodeBlock variant="output">{`15`}</CodeBlock>
 
             <blockquote>
-                현재 한랭은 <code>//</code> 한 줄 주석만 지원합니다.<br/>
-                <code>/* … */</code> 여러 줄 주석은 지원하지 않습니다.
+                현재 한랭은 <code>{'//'}</code> 한 줄 주석만 지원합니다.<br/>
+                <code>{'/* … */'}</code> 여러 줄 주석은 지원하지 않습니다.
             </blockquote>
         </article>
     );

@@ -1,3 +1,9 @@
+<center>
+
+![Flip Dot Display](https://flipdots.vercel.app/api/svg?customdots=8%2C4%2CFF%2C0%2C7E%2C87%2C99%2CE1%2C7E&style=dark&dotSize=20&spacing=2&animationMode=staticD)
+
+</center>
+
 # Introduction
 이 프로젝트는, 한국어로 간단하게 코딩을 할 수 있는 언어를 만드는 것을 목표로 합니다.
 

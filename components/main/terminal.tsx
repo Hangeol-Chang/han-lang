@@ -10,20 +10,21 @@ export default function Terminal() {
     <div style={{
       display: 'flex',
       flexDirection: 'column',
-      width: '50%',
+      width: '100%',
+      height: '100%',
     }}>
       <div style={{
-        backgroundColor: '#222',
-        color: '#aaa',
+        backgroundColor: 'var(--bg-panel)',
+        color: 'var(--text-secondary)',
         fontSize: 13,
         padding: '4px 8px',
-        borderBottom: '1px solid #444',
+        borderBottom: '1px solid var(--border-color)',
       }}>
         출력
       </div>
       <pre style={{
-        backgroundColor: '#1a1a1a',
-        color: '#e8e8e8',
+        backgroundColor: 'var(--bg-surface)',
+        color: 'var(--text-primary)',
         fontFamily: 'monospace',
         fontSize: 14,
         margin: 0,
@@ -32,9 +33,9 @@ export default function Terminal() {
         overflowY: 'auto',
         whiteSpace: 'pre-wrap',
         wordBreak: 'break-word',
-        minHeight: '200px',
+        minHeight: 0,
       }}>
-        {output || <span style={{ color: '#555' }}>// 실행 결과가 여기에 표시됩니다</span>}
+        {output || <span style={{ color: 'var(--text-muted)' }}>{'// 실행 결과가 여기에 표시됩니다'}</span>}
       </pre>
     </div>
   );
