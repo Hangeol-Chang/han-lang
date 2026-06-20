@@ -1,55 +1,92 @@
-# 한랭 (han-lang) — VS Code 확장
+# 한랭 (han-lang)
 
-[한랭](https://github.com/Hangeol-Chang/han-lang) 문법 하이라이팅을 제공하는 VS Code 확장입니다.
-`.hl` 파일을 열면 키워드, 문자열, 숫자, 함수 등이 색상으로 구분됩니다.
+![Flip Dot Display](https://flipdots.vercel.app/api/svg?customdots=8%2C4%2CFF%2C0%2C7E%2C87%2C99%2CE1%2C7E&style=dark&dotSize=20&spacing=2&animationMode=staticD)
 
-## 로컬에서 사용해보기
+**[한국어](#한국어) | [English](#english)**
 
-마켓플레이스에 올리기 전, 아래 방법으로 로컬에서 바로 테스트할 수 있습니다.
+---
 
-### 방법 1 — 폴더 복사 (가장 간단)
+## 한국어
 
-이 폴더(`editors/vscode`)를 VS Code 확장 디렉터리에 복사합니다.
+[한랭(han-lang)](https://github.com/Hangeol-Chang/han-lang)은 한국어 문법으로 코딩하는 프로그래밍 언어입니다.
+이 확장은 `.hl` 파일을 위한 문법 하이라이팅을 제공합니다.
 
-```bash
-# Windows
-xcopy /E /I editors\vscode "%USERPROFILE%\.vscode\extensions\hanlang"
-
-# macOS / Linux
-cp -r editors/vscode ~/.vscode/extensions/hanlang
-```
-
-VS Code를 재시작하면 `.hl` 파일에 하이라이팅이 적용됩니다. `example.hl`을 열어 확인하세요.
-
-### 방법 2 — vsce로 패키징
-
-```bash
-cd editors/vscode
-npx @vscode/vsce package
-code --install-extension hanlang-0.1.0.vsix
-```
-
-## 구조
+### 미리보기
 
 ```
-editors/vscode/
-├── package.json                 # 확장 메타데이터, 언어/문법 등록
-├── language-configuration.json  # 주석, 괄호, 자동완성, 들여쓰기 규칙
-├── syntaxes/
-│   └── hanlang.tmLanguage.json  # TextMate 문법 (실제 하이라이팅 규칙)
-└── example.hl                   # 동작 확인용 샘플 코드
+사과는 3 이다.
+인삿말은 "안녕하세요!" 이다.
+(인삿말)를 출력한다.
+
+만약 (사과 < 10) 라면
+	("사과가 10보다 작아요")를 출력한다.
+아니면
+	("사과가 10 이상이에요")를 출력한다.
+
+함수 더하기(a, b)
+	(a + b)를 반환한다.
+
+(더하기(3, 4))를 출력한다.
 ```
 
-## 마켓플레이스 게시 (추후)
+### 지원하는 하이라이팅
 
-1. [Azure DevOps](https://dev.azure.com)에서 Personal Access Token 발급
-2. [marketplace.visualstudio.com/manage](https://marketplace.visualstudio.com/manage)에서 publisher 계정(`hangeol-chang`) 생성
-3. `LICENSE` 파일 추가 (마켓플레이스 게시 필수 조건)
-4. `npx @vscode/vsce publish`
+- 키워드 (`만약`, `라면`/`이면`/`이라면`/`면`, `아니면`, `동안`, `함수`, `반환한다` 등)
+- 문자열, 숫자, 불리언(`진실`/`거짓`)
+- 함수 선언/호출
+- 배열(`[ ]`), 인덱싱
+- 연산자, 괄호, 주석(`//`)
 
-## GitHub Linguist 등록과의 관계
+### 더 알아보기
 
-이 확장은 VS Code에서 `.hl` 파일을 보기 좋게 만들어주는 별도 트랙입니다.
-GitHub 웹사이트(저장소 파일 보기, 언어 통계)에서 `.hl`을 인식시키려면
-[github-linguist/linguist](https://github.com/github-linguist/linguist)에 별도로 등록해야 하며,
-이 폴더의 `tm_scope`(`source.hanlang`)가 그 작업의 근거 자료로 쓰입니다.
+- 🖥️ [웹 IDE에서 바로 실행해보기](https://han-lang.vercel.app)
+- 📖 [전체 문법 문서](https://hangeol-chang.github.io/han-lang/docs)
+- 💻 [GitHub 저장소](https://github.com/Hangeol-Chang/han-lang)
+
+### 라이선스
+
+[MIT](./LICENSE)
+
+---
+
+## English
+
+[han-lang](https://github.com/Hangeol-Chang/han-lang) is a programming language that uses
+Korean grammar for writing code. This extension provides syntax highlighting for `.hl` files.
+
+### Preview
+
+```
+사과는 3 이다.
+인삿말은 "안녕하세요!" 이다.
+(인삿말)를 출력한다.
+
+만약 (사과 < 10) 라면
+	("사과가 10보다 작아요")를 출력한다.
+아니면
+	("사과가 10 이상이에요")를 출력한다.
+
+함수 더하기(a, b)
+	(a + b)를 반환한다.
+
+(더하기(3, 4))를 출력한다.
+```
+
+### Highlighting support
+
+- Keywords (`만약` *if*, `라면`/`이면`/`이라면`/`면` *if-trigger*, `아니면` *else*, `동안` *while*,
+  `함수` *function*, `반환한다` *return*, etc.)
+- Strings, numbers, booleans (`진실`/`거짓` *true*/*false*)
+- Function declarations/calls
+- Arrays (`[ ]`), indexing
+- Operators, brackets, line comments (`//`)
+
+### Learn more
+
+- 🖥️ [Try it in the web IDE](https://han-lang.vercel.app)
+- 📖 [Full syntax documentation](https://hangeol-chang.github.io/han-lang/docs)
+- 💻 [GitHub repository](https://github.com/Hangeol-Chang/han-lang)
+
+### License
+
+[MIT](./LICENSE)

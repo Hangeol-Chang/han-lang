@@ -2,8 +2,10 @@
   "name": "hanlang",
   "displayName": "한랭 (han-lang)",
   "description": "한국어 코딩 프로그래밍 언어 한랭(han-lang)을 위한 문법 하이라이팅",
-  "version": "0.1.0",
+  "version": "0.1.2",
+  "license": "MIT",
   "publisher": "hangeol-chang",
+  "icon": "icon.png",
   "engines": {
     "vscode": "^1.75.0"
   },
@@ -28,8 +30,14 @@
     "languages": [
       {
         "id": "hanlang",
-        "aliases": ["한랭", "han-lang", "HanLang"],
-        "extensions": [".hl"],
+        "aliases": [
+          "한랭",
+          "han-lang",
+          "HanLang"
+        ],
+        "extensions": [
+          ".hl"
+        ],
         "configuration": "./language-configuration.json"
       }
     ],
