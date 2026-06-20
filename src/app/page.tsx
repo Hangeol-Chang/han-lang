@@ -1,13 +1,9 @@
-import Editor from '../../components/main/editor';
-import Terminal from '../../components/main/terminal';
+import IdeLayout from '../../components/main/IdeLayout';
 
 export default function Home() {
-  return (
-    <main style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        <Editor />
-        <Terminal />
-      </div>
-    </main>
-  );
+    return (
+        <main style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 56px)' }}>
+            <IdeLayout />
+        </main>
+    );
 }

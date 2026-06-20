@@ -1,5 +1,7 @@
 "use client";
 
+import Button from "../Common/button";
+
 export type SectionId =
     | "introduction"
     | "variables"
@@ -33,43 +35,47 @@ export default function Sidebar({ current, onSelect }: Props) {
         <nav style={{
             width: 220,
             minHeight: "100%",
-            backgroundColor: "#1e1e1e",
-            borderRight: "1px solid #333",
+            backgroundColor: "var(--bg-panel)",
+            borderRight: "1px solid var(--border-color)",
             padding: "24px 0",
             flexShrink: 0,
         }}>
             <div style={{
-                color: "#888",
-                fontSize: 11,
+                color: "var(--text-muted)",
+                fontSize: 10,
                 fontWeight: 700,
-                letterSpacing: 1,
+                letterSpacing: 1.5,
                 textTransform: "uppercase",
-                padding: "0 20px 12px",
+                padding: "0 16px 12px",
             }}>
                 한랭 문서
             </div>
+
             {SECTIONS.map(({ id, label }) => {
                 const active = id === current;
                 return (
-                    <button
+                    <Button
                         key={id}
+                        variant="ghost"
+                        size="md"
                         onClick={() => onSelect(id)}
                         style={{
                             display: "block",
                             width: "100%",
                             textAlign: "left",
-                            background: active ? "#2a2a2a" : "transparent",
-                            color: active ? "#fff" : "#aaa",
-                            border: "none",
-                            borderLeft: active ? "3px solid #4caf50" : "3px solid transparent",
-                            padding: "8px 20px",
-                            fontSize: 14,
-                            cursor: "pointer",
-                            transition: "background 0.1s",
+                            borderRadius: 0,
+                            borderLeft: active ? "2px solid var(--accent)" : "2px solid transparent",
+                            borderTop: "none",
+                            borderRight: "none",
+                            borderBottom: "none",
+                            backgroundColor: active ? "var(--bg-surface)" : "transparent",
+                            color: active ? "var(--text-primary)" : "var(--text-muted)",
+                            padding: "7px 16px",
+                            fontSize: 13,
                         }}
                     >
                         {label}
-                    </button>
+                    </Button>
                 );
             })}
         </nav>

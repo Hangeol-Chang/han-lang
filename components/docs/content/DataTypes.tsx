@@ -20,7 +20,7 @@ export default function DataTypes() {
 나눗셈은 10 / 3 이다.  // 3.333...`}</CodeBlock>
 
             <h2>문자열</h2>
-            <p>큰따옴표(<code>"</code>)로 감쌉니다.</p>
+            <p>큰따옴표(<code>{'"'}</code>)로 감쌉니다.</p>
             <CodeBlock>{`이름은 "홍길동" 이다.
 빈문자는 "" 이다.`}</CodeBlock>
 
@@ -32,8 +32,8 @@ export default function DataTypes() {
                 <tbody>
                     <tr><td><code>\n</code></td><td>줄바꿈</td></tr>
                     <tr><td><code>\t</code></td><td>탭</td></tr>
-                    <tr><td><code>\"</code></td><td>큰따옴표 문자</td></tr>
-                    <tr><td><code>\'</code></td><td>작은따옴표 문자</td></tr>
+                    <tr><td><code>{'\\"'}</code></td><td>큰따옴표 문자</td></tr>
+                    <tr><td><code>{"\\'"}</code></td><td>작은따옴표 문자</td></tr>
                 </tbody>
             </table>
             <CodeBlock>{`인삿말은 "안녕!\n반가워요!" 이다.
