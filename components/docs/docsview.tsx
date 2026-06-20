@@ -8,6 +8,8 @@ import DataTypes from "./content/DataTypes";
 import Print from "./content/Print";
 import IfElse from "./content/IfElse";
 import While from "./content/While";
+import Arrays from "./content/Arrays";
+import Functions from "./content/Functions";
 import Operators from "./content/Operators";
 import Comments from "./content/Comments";
 import Examples from "./content/Examples";
@@ -19,6 +21,8 @@ const CONTENT: Record<SectionId, React.ReactNode> = {
     print:        <Print />,
     ifelse:       <IfElse />,
     while:        <While />,
+    arrays:       <Arrays />,
+    functions:    <Functions />,
     operators:    <Operators />,
     comments:     <Comments />,
     examples:     <Examples />,

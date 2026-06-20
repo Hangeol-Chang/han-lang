@@ -92,6 +92,51 @@ i는 0 이다.
 ***
 ****
 *****`}</CodeBlock>
+
+            <h2>배열 평균 구하기 (함수 + 배열)</h2>
+            <CodeBlock>{`함수 평균(목록)
+\t합계는 0 이다.
+\ti는 0 이다.
+\t(i < 길이(목록)) 동안
+\t\t합계는 합계 + 목록[i] 이다.
+\t\ti는 i + 1 이다.
+\t(합계 / 길이(목록))를 반환한다.
+
+점수들은 [80, 90, 70, 100] 이다.
+("평균: %d\n", 평균(점수들))를 출력한다.`}</CodeBlock>
+            <CodeBlock variant="output">{`평균: 85`}</CodeBlock>
+
+            <h2>최댓값 찾기 (배열 순회)</h2>
+            <CodeBlock>{`함수 최댓값(목록)
+\t최대는 목록[0] 이다.
+\ti는 1 이다.
+\t(i < 길이(목록)) 동안
+\t\t만약 (목록[i] > 최대) 라면
+\t\t\t최대는 목록[i] 이다.
+\t\ti는 i + 1 이다.
+\t(최대)를 반환한다.
+
+숫자들은 [3, 7, 2, 9, 4] 이다.
+(최댓값(숫자들))를 출력한다.`}</CodeBlock>
+            <CodeBlock variant="output">{`9`}</CodeBlock>
+
+            <h2>피보나치 수열을 배열에 채우기</h2>
+            <CodeBlock>{`fib은 [0, 1] 이다.
+i는 2 이다.
+(i < 10) 동안
+\tfib[i]는 fib[i - 1] + fib[i - 2] 이다.
+\ti는 i + 1 이다.
+(fib)를 출력한다.`}</CodeBlock>
+            <CodeBlock variant="output">{`[0, 1, 1, 2, 3, 5, 8, 13, 21, 34]`}</CodeBlock>
+
+            <h2>재귀 함수로 팩토리얼 구하기</h2>
+            <CodeBlock>{`함수 팩토리얼(n)
+\t만약 (n <= 1) 라면
+\t\t(1)를 반환한다.
+\t(n * 팩토리얼(n - 1))를 반환한다.
+
+(팩토리얼(5))를 출력한다.`}</CodeBlock>
+            <CodeBlock variant="output">{`120`}</CodeBlock>
         </article>
     );
 }

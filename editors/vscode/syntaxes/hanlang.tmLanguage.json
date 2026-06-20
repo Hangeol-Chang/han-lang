@@ -1,0 +1,153 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "한랭 (han-lang)",
+  "scopeName": "source.hanlang",
+  "fileTypes": ["hl"],
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#strings" },
+    { "include": "#numbers" },
+    { "include": "#booleans" },
+    { "include": "#function-declaration" },
+    { "include": "#control-keywords" },
+    { "include": "#binding-keywords" },
+    { "include": "#return-keyword" },
+    { "include": "#print-keyword" },
+    { "include": "#builtin-function-call" },
+    { "include": "#function-call" },
+    { "include": "#operators" },
+    { "include": "#punctuation" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.hanlang",
+          "match": "//.*$"
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.hanlang",
+          "begin": "\"",
+          "end": "\"",
+          "patterns": [
+            {
+              "name": "constant.character.escape.hanlang",
+              "match": "\\\\[ntr\"'\\\\]"
+            }
+          ]
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.hanlang",
+          "match": "-?\\b[0-9]+(\\.[0-9]+)?\\b"
+        }
+      ]
+    },
+    "booleans": {
+      "patterns": [
+        {
+          "name": "constant.language.boolean.hanlang",
+          "match": "(?<![\\x{AC00}-\\x{D7A3}\\x{1100}-\\x{11FF}\\x{3130}-\\x{318F}A-Za-z0-9_])(진실|거짓)(?![\\x{AC00}-\\x{D7A3}\\x{1100}-\\x{11FF}\\x{3130}-\\x{318F}A-Za-z0-9_])"
+        }
+      ]
+    },
+    "control-keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.hanlang",
+          "match": "(?<![\\x{AC00}-\\x{D7A3}\\x{1100}-\\x{11FF}\\x{3130}-\\x{318F}A-Za-z0-9_])(만약|아니면|이라면|라면|이면|면|동안)(?![\\x{AC00}-\\x{D7A3}\\x{1100}-\\x{11FF}\\x{3130}-\\x{318F}A-Za-z0-9_])"
+        }
+      ]
+    },
+    "binding-keywords": {
+      "patterns": [
+        {
+          "name": "keyword.operator.word.hanlang",
+          "match": "(?<![\\x{AC00}-\\x{D7A3}\\x{1100}-\\x{11FF}\\x{3130}-\\x{318F}A-Za-z0-9_])(이다|있다)(?![\\x{AC00}-\\x{D7A3}\\x{1100}-\\x{11FF}\\x{3130}-\\x{318F}A-Za-z0-9_])"
+        }
+      ]
+    },
+    "return-keyword": {
+      "patterns": [
+        {
+          "name": "keyword.control.return.hanlang",
+          "match": "(?<![\\x{AC00}-\\x{D7A3}\\x{1100}-\\x{11FF}\\x{3130}-\\x{318F}A-Za-z0-9_])반환한다(?![\\x{AC00}-\\x{D7A3}\\x{1100}-\\x{11FF}\\x{3130}-\\x{318F}A-Za-z0-9_])"
+        }
+      ]
+    },
+    "print-keyword": {
+      "patterns": [
+        {
+          "name": "support.function.builtin.hanlang",
+          "match": "(?<![\\x{AC00}-\\x{D7A3}\\x{1100}-\\x{11FF}\\x{3130}-\\x{318F}A-Za-z0-9_])출력한다(?![\\x{AC00}-\\x{D7A3}\\x{1100}-\\x{11FF}\\x{3130}-\\x{318F}A-Za-z0-9_])"
+        }
+      ]
+    },
+    "function-declaration": {
+      "patterns": [
+        {
+          "match": "(?<![\\x{AC00}-\\x{D7A3}\\x{1100}-\\x{11FF}\\x{3130}-\\x{318F}A-Za-z0-9_])(함수)\\s+([\\x{AC00}-\\x{D7A3}\\x{1100}-\\x{11FF}\\x{3130}-\\x{318F}A-Za-z_][\\x{AC00}-\\x{D7A3}\\x{1100}-\\x{11FF}\\x{3130}-\\x{318F}A-Za-z0-9_]*)(?=\\()",
+          "captures": {
+            "1": { "name": "storage.type.function.hanlang" },
+            "2": { "name": "entity.name.function.hanlang" }
+          }
+        }
+      ]
+    },
+    "builtin-function-call": {
+      "patterns": [
+        {
+          "name": "support.function.builtin.hanlang",
+          "match": "(?<![\\x{AC00}-\\x{D7A3}\\x{1100}-\\x{11FF}\\x{3130}-\\x{318F}A-Za-z0-9_])길이(?=\\()"
+        }
+      ]
+    },
+    "function-call": {
+      "patterns": [
+        {
+          "name": "entity.name.function.hanlang",
+          "match": "[\\x{AC00}-\\x{D7A3}\\x{1100}-\\x{11FF}\\x{3130}-\\x{318F}A-Za-z_][\\x{AC00}-\\x{D7A3}\\x{1100}-\\x{11FF}\\x{3130}-\\x{318F}A-Za-z0-9_]*(?=\\()"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.comparison.hanlang",
+          "match": "==|!=|<=|>=|<|>"
+        },
+        {
+          "name": "keyword.operator.arithmetic.hanlang",
+          "match": "\\+|-|\\*|/"
+        }
+      ]
+    },
+    "punctuation": {
+      "patterns": [
+        {
+          "name": "punctuation.section.parens.hanlang",
+          "match": "[()]"
+        },
+        {
+          "name": "punctuation.section.brackets.hanlang",
+          "match": "[\\[\\]]"
+        },
+        {
+          "name": "punctuation.separator.comma.hanlang",
+          "match": ","
+        },
+        {
+          "name": "punctuation.terminator.statement.hanlang",
+          "match": "\\.|;"
+        }
+      ]
+    }
+  }
+}

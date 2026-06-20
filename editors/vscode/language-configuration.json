@@ -1,0 +1,23 @@
+{
+  "comments": {
+    "lineComment": "//"
+  },
+  "brackets": [
+    ["(", ")"],
+    ["[", "]"]
+  ],
+  "autoClosingPairs": [
+    { "open": "(", "close": ")" },
+    { "open": "[", "close": "]" },
+    { "open": "\"", "close": "\"", "notIn": ["string"] }
+  ],
+  "surroundingPairs": [
+    ["(", ")"],
+    ["[", "]"],
+    ["\"", "\""]
+  ],
+  "indentationRules": {
+    "increaseIndentPattern": "(라면|이면|이라면|면|아니면|동안)\\s*$|^\\s*함수\\s+\\S+\\([^)]*\\)\\s*$",
+    "decreaseIndentPattern": "^\\s*$"
+  }
+}
