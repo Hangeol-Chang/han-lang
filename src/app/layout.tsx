@@ -3,6 +3,8 @@ import './globals.css'
 import RecoilRootWrapper from '../../wrappers/RecoilRootWrapper'
 import Header from '../../components/layout/header'
 import Footer from '../../components/layout/footer'
+import { Analytics } from '@vercel/analytics/react'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 
 export const metadata: Metadata = {
     title: '한랭 han-lang',
@@ -33,6 +35,8 @@ export default function RootLayout(
                     </div>
                     <Footer />
                 </RecoilRootWrapper>
+                <Analytics />
+                <SpeedInsights />
             </body>
         </html>
     )
