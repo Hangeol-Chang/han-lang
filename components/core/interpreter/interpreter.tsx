@@ -1,15 +1,35 @@
-import type { Program, Statement, Expression } from '../compiler/parser';
+import type { Program, Statement, Expression, FunctionDecl } from '../compiler/parser';
 
-type Value = number | string | boolean | undefined;
+type Value = number | string | boolean | undefined | Value[];
+
+class ReturnSignal {
+  constructor(public value: Value) {}
+}
+
+const MAX_CALL_DEPTH = 1000;
 
 export class Interpreter {
   private env: Map<string, Value> = new Map();
+  private functions: Map<string, FunctionDecl> = new Map();
   private output: string[] = [];
+  private callDepth = 0;
 
   run(program: Program): string {
     this.env = new Map();
+    this.functions = new Map();
     this.output = [];
-    this.execBlock(program.body);
+    this.callDepth = 0;
+
+    // Hoist top-level function declarations so they can be called before their textual position
+    for (const stmt of program.body) {
+      if (stmt.type === 'FunctionDecl') this.functions.set(stmt.name, stmt);
+    }
+
+    try {
+      this.execBlock(program.body);
+    } catch (e) {
+      if (!(e instanceof ReturnSignal)) throw e;
+    }
     return this.output.join('');
   }
 
@@ -26,6 +46,9 @@ export class Interpreter {
         break;
       case 'Declare':
         this.env.set(stmt.name, undefined);
+        break;
+      case 'IndexAssign':
+        this.execIndexAssign(stmt.name, stmt.index, stmt.value);
         break;
       case 'Print':
         this.execPrint(stmt.args);
@@ -48,7 +71,24 @@ export class Interpreter {
         }
         break;
       }
+      case 'FunctionDecl':
+        this.functions.set(stmt.name, stmt);
+        break;
+      case 'Return':
+        throw new ReturnSignal(this.evalExpr(stmt.value));
+      case 'ExprStatement':
+        this.evalExpr(stmt.expr);
+        break;
     }
+  }
+
+  private execIndexAssign(name: string, indexExpr: Expression, valueExpr: Expression): void {
+    const arr = this.env.get(name);
+    if (!Array.isArray(arr)) throw new Error(`"${name}"는 배열이 아닙니다`);
+    const idx = Number(this.evalExpr(indexExpr));
+    if (idx < 0) throw new Error('인덱스는 0 이상이어야 합니다');
+    if (idx > arr.length) throw new Error(`배열 범위를 벗어났습니다 (길이: ${arr.length}, 인덱스: ${idx})`);
+    arr[idx] = this.evalExpr(valueExpr);
   }
 
   private execPrint(args: Expression[]): void {
@@ -65,17 +105,20 @@ export class Interpreter {
       const result = first.replace(/%[ds]/g, (match) => {
         if (argIdx >= args.length) return match;
         const val = this.evalExpr(args[argIdx++]);
-        return match === '%d' ? Math.floor(Number(val)).toString() : String(val ?? '');
+        return match === '%d' ? Math.floor(Number(val)).toString() : this.formatValue(val);
       });
       this.output.push(result);
     } else {
       // Simple print: join all args with space and append newline
-      const parts = args.map(a => {
-        const v = this.evalExpr(a);
-        return v === undefined ? '정의되지않음' : String(v);
-      });
+      const parts = args.map(a => this.formatValue(this.evalExpr(a)));
       this.output.push(parts.join(' ') + '\n');
     }
+  }
+
+  private formatValue(v: Value): string {
+    if (v === undefined) return '정의되지않음';
+    if (Array.isArray(v)) return '[' + v.map(x => this.formatValue(x)).join(', ') + ']';
+    return String(v);
   }
 
   private evalExpr(expr: Expression): Value {
@@ -89,13 +132,26 @@ export class Interpreter {
         }
         return this.env.get(expr.name);
       }
+      case 'ArrayLiteral':
+        return expr.elements.map(e => this.evalExpr(e));
+      case 'Index': {
+        const arr = this.evalExpr(expr.array);
+        if (!Array.isArray(arr)) throw new Error('배열이 아닌 값에 인덱스를 사용했습니다');
+        const idx = Number(this.evalExpr(expr.index));
+        if (idx < 0 || idx >= arr.length) {
+          throw new Error(`배열 범위를 벗어났습니다 (길이: ${arr.length}, 인덱스: ${idx})`);
+        }
+        return arr[idx];
+      }
+      case 'Call':
+        return this.callFunction(expr.name, expr.args.map(a => this.evalExpr(a)));
       case 'BinaryOp': {
         const left = this.evalExpr(expr.left);
         const right = this.evalExpr(expr.right);
         switch (expr.op) {
           case '+':
             return (typeof left === 'string' || typeof right === 'string')
-              ? String(left ?? '') + String(right ?? '')
+              ? this.formatValue(left) + this.formatValue(right)
               : Number(left) + Number(right);
           case '-': return Number(left) - Number(right);
           case '*': return Number(left) * Number(right);
@@ -114,5 +170,47 @@ export class Interpreter {
         }
       }
     }
+  }
+
+  private callFunction(name: string, args: Value[]): Value {
+    // built-ins
+    if (name === '길이') {
+      const v = args[0];
+      if (Array.isArray(v) || typeof v === 'string') return v.length;
+      throw new Error('길이() 는 배열 또는 문자열에만 사용할 수 있습니다');
+    }
+
+    const fn = this.functions.get(name);
+    if (!fn) throw new Error(`정의되지 않은 함수: "${name}"`);
+    if (args.length !== fn.params.length) {
+      throw new Error(`함수 "${name}"는 매개변수 ${fn.params.length}개가 필요합니다 (받은 값: ${args.length}개)`);
+    }
+
+    if (++this.callDepth > MAX_CALL_DEPTH) {
+      this.callDepth--;
+      throw new Error('함수 호출이 너무 깊습니다 (무한 재귀 의심)');
+    }
+
+    const savedEnv = this.env;
+    const localEnv = new Map<string, Value>();
+    fn.params.forEach((p, i) => localEnv.set(p, args[i]));
+    this.env = localEnv;
+
+    let returnValue: Value = undefined;
+    try {
+      this.execBlock(fn.body);
+    } catch (e) {
+      if (e instanceof ReturnSignal) {
+        returnValue = e.value;
+      } else {
+        this.env = savedEnv;
+        this.callDepth--;
+        throw e;
+      }
+    }
+
+    this.env = savedEnv;
+    this.callDepth--;
+    return returnValue;
   }
 }

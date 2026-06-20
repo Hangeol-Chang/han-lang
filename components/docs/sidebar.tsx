@@ -9,6 +9,8 @@ export type SectionId =
     | "print"
     | "ifelse"
     | "while"
+    | "arrays"
+    | "functions"
     | "operators"
     | "comments"
     | "examples";
@@ -20,6 +22,8 @@ const SECTIONS: { id: SectionId; label: string }[] = [
     { id: "print",        label: "출력" },
     { id: "ifelse",       label: "조건문 (if/else)" },
     { id: "while",        label: "반복문 (while)" },
+    { id: "arrays",       label: "배열" },
+    { id: "functions",    label: "함수" },
     { id: "operators",    label: "연산자" },
     { id: "comments",     label: "주석" },
     { id: "examples",     label: "예제 모음" },

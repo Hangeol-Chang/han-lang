@@ -9,7 +9,9 @@ export type TokenType =
   | 'WHILE'       // 동안
   | 'TRUE'        // 진실
   | 'FALSE'       // 거짓
-  | 'LPAREN' | 'RPAREN' | 'COMMA' | 'PERIOD'
+  | 'FUNCTION'    // 함수
+  | 'RETURN'      // 반환한다
+  | 'LPAREN' | 'RPAREN' | 'LBRACKET' | 'RBRACKET' | 'COMMA' | 'PERIOD'
   | 'OPERATOR'
   | 'NEWLINE' | 'INDENT' | 'DEDENT' | 'EOF';
 
@@ -32,6 +34,8 @@ const KEYWORDS: Record<string, TokenType> = {
   '동안': 'WHILE',
   '진실': 'TRUE',
   '거짓': 'FALSE',
+  '함수': 'FUNCTION',
+  '반환한다': 'RETURN',
 };
 
 // longest-first to avoid partial matches
@@ -135,6 +139,8 @@ export function tokenize(source: string): Token[] {
 
       if (ch === '(') { tokens.push({ type: 'LPAREN', value: '(', line: lineNo }); pos++; continue; }
       if (ch === ')') { tokens.push({ type: 'RPAREN', value: ')', line: lineNo }); pos++; continue; }
+      if (ch === '[') { tokens.push({ type: 'LBRACKET', value: '[', line: lineNo }); pos++; continue; }
+      if (ch === ']') { tokens.push({ type: 'RBRACKET', value: ']', line: lineNo }); pos++; continue; }
       if (ch === ',') { tokens.push({ type: 'COMMA', value: ',', line: lineNo }); pos++; continue; }
       if (ch === '.' || ch === ';') { tokens.push({ type: 'PERIOD', value: '.', line: lineNo }); pos++; continue; }
 

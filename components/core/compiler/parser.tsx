@@ -24,16 +24,24 @@ export type Expression =
   | { type: 'String'; value: string }
   | { type: 'Bool'; value: boolean }
   | { type: 'Identifier'; name: string }
-  | { type: 'BinaryOp'; op: string; left: Expression; right: Expression };
+  | { type: 'BinaryOp'; op: string; left: Expression; right: Expression }
+  | { type: 'ArrayLiteral'; elements: Expression[] }
+  | { type: 'Index'; array: Expression; index: Expression }
+  | { type: 'Call'; name: string; args: Expression[] };
 
 export type Statement =
   | { type: 'Assign'; name: string; value: Expression }
   | { type: 'Declare'; name: string }
+  | { type: 'IndexAssign'; name: string; index: Expression; value: Expression }
   | { type: 'Print'; args: Expression[] }
   | { type: 'If'; condition: Expression; body: Statement[]; elseBody: Statement[] }
-  | { type: 'While'; condition: Expression; body: Statement[] };
+  | { type: 'While'; condition: Expression; body: Statement[] }
+  | { type: 'FunctionDecl'; name: string; params: string[]; body: Statement[] }
+  | { type: 'Return'; value: Expression }
+  | { type: 'ExprStatement'; expr: Expression };
 
 export type Program = { type: 'Program'; body: Statement[] };
+export type FunctionDecl = Extract<Statement, { type: 'FunctionDecl' }>;
 
 export class Parser {
   private tokens: Token[];
@@ -101,15 +109,42 @@ export class Parser {
     if (tok.type === 'EOF' || tok.type === 'DEDENT') return null;
 
     if (tok.type === 'IF') return this.parseIf();
+    if (tok.type === 'FUNCTION') return this.parseFunctionDecl();
     if (tok.type === 'LPAREN') return this.parseLParenStatement();
-    if (tok.type === 'IDENTIFIER') return this.parseIdentifierStatement();
+    if (tok.type === 'IDENTIFIER') {
+      if (this.tokens[this.pos + 1]?.type === 'LBRACKET' && this.isIndexAssignAhead()) {
+        return this.parseIndexAssign();
+      }
+      // 함수이름(...) used standalone (no assignment) — a call statement for side effects
+      if (this.tokens[this.pos + 1]?.type === 'LPAREN') {
+        return this.parseCallStatement();
+      }
+      return this.parseIdentifierStatement();
+    }
 
     // skip unexpected token
     this.advance();
     return null;
   }
 
-  // Determine whether (…) starts a while or a print by peeking past the closing )
+  // Distinguishes `이름[idx]는 값 이다.` (index assign) from `이름은 [값, ...] 이다.`
+  // (assignment whose value happens to be an array literal) by checking what
+  // follows the matching closing bracket — ASSIGN means the bracket was the value.
+  private isIndexAssignAhead(): boolean {
+    let depth = 0;
+    let look = this.pos + 1; // at LBRACKET
+    while (look < this.tokens.length) {
+      if (this.tokens[look].type === 'LBRACKET') depth++;
+      else if (this.tokens[look].type === 'RBRACKET') {
+        depth--;
+        if (depth === 0) { look++; break; }
+      }
+      look++;
+    }
+    return this.tokens[look]?.type !== 'ASSIGN';
+  }
+
+  // Determine whether (…) starts a while, a print, or a return by peeking past the closing )
   private parseLParenStatement(): Statement {
     let depth = 0;
     let look = this.pos;
@@ -121,7 +156,62 @@ export class Parser {
       }
       look++;
     }
-    return this.tokens[look]?.type === 'WHILE' ? this.parseWhile() : this.parsePrint();
+    const nextType = this.tokens[look]?.type;
+    if (nextType === 'WHILE') return this.parseWhile();
+    if (nextType === 'RETURN') return this.parseReturn();
+    return this.parsePrint();
+  }
+
+  // 함수 이름(매개변수, ...) NEWLINE INDENT body DEDENT
+  private parseFunctionDecl(): Statement {
+    this.expect('FUNCTION');
+    const name = this.advance().value as string;
+    this.expect('LPAREN');
+    const params: string[] = [];
+    if (this.peek().type !== 'RPAREN') {
+      params.push(this.advance().value as string);
+      while (this.peek().type === 'COMMA') {
+        this.advance();
+        params.push(this.advance().value as string);
+      }
+    }
+    this.expect('RPAREN');
+    if (this.peek().type === 'PERIOD') this.advance();
+    this.skipNewlines();
+    const body = this.parseIndentedBlock();
+    return { type: 'FunctionDecl', name, params, body };
+  }
+
+  // (값)를 반환한다.
+  private parseReturn(): Statement {
+    this.expect('LPAREN');
+    const value = this.parseExpr();
+    this.expect('RPAREN');
+    this.expect('RETURN');
+    if (this.peek().type === 'PERIOD') this.advance();
+    this.skipNewlines();
+    return { type: 'Return', value };
+  }
+
+  // 함수이름(args) — standalone call statement, no assignment
+  private parseCallStatement(): Statement {
+    const expr = this.parseExpr();
+    if (this.peek().type === 'PERIOD') this.advance();
+    this.skipNewlines();
+    return { type: 'ExprStatement', expr };
+  }
+
+  // 이름[인덱스] 는 값 이다.
+  private parseIndexAssign(): Statement {
+    const name = this.advance().value as string;
+    this.expect('LBRACKET');
+    const index = this.parseExpr();
+    this.expect('RBRACKET');
+    const value = this.parseExpr();
+    this.expect('ASSIGN');
+    if (this.peek().type === 'PERIOD') this.advance();
+    this.skipNewlines();
+    return { type: 'IndexAssign', name, index, value };
   }
 
   // 만약 (condition) 라면/이면/이라면/면
@@ -240,7 +330,51 @@ export class Parser {
     if (tok.type === 'STRING') { this.advance(); return { type: 'String', value: tok.value as string }; }
     if (tok.type === 'TRUE') { this.advance(); return { type: 'Bool', value: true }; }
     if (tok.type === 'FALSE') { this.advance(); return { type: 'Bool', value: false }; }
-    if (tok.type === 'IDENTIFIER') { this.advance(); return { type: 'Identifier', name: tok.value as string }; }
+
+    if (tok.type === 'LBRACKET') {
+      this.advance();
+      const elements: Expression[] = [];
+      if (this.peek().type !== 'RBRACKET') {
+        elements.push(this.parseExpr());
+        while (this.peek().type === 'COMMA') {
+          this.advance();
+          elements.push(this.parseExpr());
+        }
+      }
+      this.expect('RBRACKET');
+      return { type: 'ArrayLiteral', elements };
+    }
+
+    if (tok.type === 'IDENTIFIER') {
+      this.advance();
+      let node: Expression = { type: 'Identifier', name: tok.value as string };
+
+      // function call: IDENTIFIER(args)
+      if (this.peek().type === 'LPAREN') {
+        this.advance();
+        const args: Expression[] = [];
+        if (this.peek().type !== 'RPAREN') {
+          args.push(this.parseExpr());
+          while (this.peek().type === 'COMMA') {
+            this.advance();
+            args.push(this.parseExpr());
+          }
+        }
+        this.expect('RPAREN');
+        node = { type: 'Call', name: tok.value as string, args };
+      }
+
+      // index access (chainable for nested arrays): IDENTIFIER[expr][expr]...
+      while (this.peek().type === 'LBRACKET') {
+        this.advance();
+        const index = this.parseExpr();
+        this.expect('RBRACKET');
+        node = { type: 'Index', array: node, index };
+      }
+
+      return node;
+    }
+
     if (tok.type === 'LPAREN') {
       this.advance();
       const expr = this.parseExpr();
