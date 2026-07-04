@@ -1,21 +1,6 @@
-import { Token, TokenType, tokenize } from './lexer';
+import { Token, TokenType, tokenize, stripParticle } from './lexer';
 
 export { tokenize };
-
-// Safe particles: strip even if only 1 char remains (은/는/를/을 rarely end actual Korean nouns)
-const SAFE_PARTICLES = ['을', '를', '은', '는'];
-// Risky particles: require >=2 chars to remain (이/가/과/와 commonly end actual Korean nouns)
-const RISKY_PARTICLES = ['이라면', '으로', '에서', '라면', '이면', '이', '가', '와', '과', '의', '에', '도', '만', '로'];
-
-function stripParticle(word: string): string {
-  for (const p of SAFE_PARTICLES) {
-    if (word.endsWith(p) && word.length > p.length) return word.slice(0, word.length - p.length);
-  }
-  for (const p of RISKY_PARTICLES) {
-    if (word.endsWith(p) && word.length - p.length >= 2) return word.slice(0, word.length - p.length);
-  }
-  return word;
-}
 
 // AST Types
 
@@ -119,6 +104,15 @@ export class Parser {
       if (this.tokens[this.pos + 1]?.type === 'LPAREN') {
         return this.parseCallStatement();
       }
+    }
+
+    // 인자1[조사] 인자2[조사] ... 출력한다. — paren-less call, e.g. "사과랑 배를 출력한다."
+    // Any primary (identifier, literal, array) can start this, not just identifiers.
+    if (Parser.PRIMARY_START.includes(tok.type) && this.isImplicitCallAhead('PRINT')) {
+      return this.parseParenlessPrint();
+    }
+
+    if (tok.type === 'IDENTIFIER') {
       return this.parseIdentifierStatement();
     }
 
@@ -284,18 +278,103 @@ export class Parser {
     return { type: 'Assign', name, value };
   }
 
+  // Looks ahead (without consuming) to see whether the current statement is a
+  // Korean-order call: 인자1[조사] 인자2[조사] ... 인자N[조사] 동사. — where the
+  // "동사" is the given trigger keyword (e.g. PRINT). Stops at the first
+  // ASSIGN/DECLARE/statement-end token found at bracket depth 0, since those
+  // mean this is really an assignment/declaration instead.
+  //
+  // This same shape — implicit particle-joined arguments ending in a verb — is
+  // what future user-defined function calls will use (e.g. "사과랑 배를 갈아마신다"),
+  // so `triggerType` is a parameter rather than being hardcoded to PRINT.
+  private isImplicitCallAhead(triggerType: TokenType): boolean {
+    let depth = 0;
+    let look = this.pos;
+    while (look < this.tokens.length) {
+      const t = this.tokens[look].type;
+      if (t === 'LPAREN' || t === 'LBRACKET') depth++;
+      else if (t === 'RPAREN' || t === 'RBRACKET') depth--;
+      else if (depth === 0) {
+        if (t === triggerType) return true;
+        if (t === 'ASSIGN' || t === 'DECLARE' || t === 'NEWLINE' || t === 'PERIOD' || t === 'EOF' || t === 'DEDENT') {
+          return false;
+        }
+      }
+      look++;
+    }
+    return false;
+  }
+
+  // Parses a Korean-order argument list: 인자1[조사] 인자2[조사] ... , stopping
+  // right before the token matching `triggerType`. Each argument is parsed with
+  // parseAddSub (not parseExpr) so that a bare identifier immediately following
+  // another isn't mistaken for the Korean comparison form (see parseComparison).
+  private parseImplicitArgs(triggerType: TokenType): Expression[] {
+    const args: Expression[] = [this.parseAddSub()];
+    while (this.peek().type !== triggerType) {
+      args.push(this.parseAddSub());
+    }
+    return args;
+  }
+
+  // 인자1[조사] 인자2[조사] ... 출력한다.
+  private parseParenlessPrint(): Statement {
+    const args = this.parseImplicitArgs('PRINT');
+    this.expect('PRINT');
+    if (this.peek().type === 'PERIOD') this.advance();
+    this.skipNewlines();
+    return { type: 'Print', args };
+  }
+
   // Expression grammar (comparison → addSub → mulDiv → unary → primary)
   private parseExpr(): Expression {
     return this.parseComparison();
   }
 
+  // Tokens that can start a primary expression — used to detect the Korean
+  // comparison form "A가 B보다 크다", where B follows A with no operator between them.
+  private static readonly PRIMARY_START: TokenType[] = ['NUMBER', 'STRING', 'TRUE', 'FALSE', 'IDENTIFIER', 'LBRACKET', 'LPAREN'];
+
   private parseComparison(): Expression {
     let left = this.parseAddSub();
-    while (this.peek().type === 'OPERATOR' && ['<', '>', '==', '!=', '<=', '>='].includes(this.peek().value as string)) {
-      const op = this.advance().value as string;
-      left = { type: 'BinaryOp', op, left, right: this.parseAddSub() };
+    while (true) {
+      if (this.peek().type === 'OPERATOR' && ['<', '>', '==', '!=', '<=', '>='].includes(this.peek().value as string)) {
+        const op = this.advance().value as string;
+        left = { type: 'BinaryOp', op, left, right: this.parseAddSub() };
+        continue;
+      }
+      if (Parser.PRIMARY_START.includes(this.peek().type)) {
+        const right = this.parseAddSub();
+        this.expect('THAN');
+        const op = this.parseComparePredicate();
+        left = { type: 'BinaryOp', op, left, right };
+        continue;
+      }
+      break;
     }
     return left;
+  }
+
+  // 크다/작다/크거나 같다/작거나 같다/같다/다르다 → >, <, >=, <=, ==, !=
+  private parseComparePredicate(): string {
+    const word = this.expect('COMPARE_KEYWORD').value as string;
+    switch (word) {
+      case '크다': return '>';
+      case '작다': return '<';
+      case '같다': return '==';
+      case '다르다': return '!=';
+      case '크거나':
+      case '작거나': {
+        const next = this.peek();
+        if (next.type === 'COMPARE_KEYWORD' && next.value === '같다') {
+          this.advance();
+          return word === '크거나' ? '>=' : '<=';
+        }
+        throw new Error(`${next.line}번 줄: "${word}" 다음에는 "같다"가 와야 합니다`);
+      }
+      default:
+        throw new Error(`알 수 없는 비교 서술어: ${word}`);
+    }
   }
 
   private parseAddSub(): Expression {

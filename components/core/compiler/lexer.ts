@@ -11,6 +11,8 @@ export type TokenType =
   | 'FALSE'       // 거짓
   | 'FUNCTION'    // 함수
   | 'RETURN'      // 반환한다
+  | 'COMPARE_KEYWORD' // 크다, 작다, 크거나, 작거나, 같다, 다르다
+  | 'THAN'        // 보다, 와, 과, 랑 (비교 대상을 표시하는 조사)
   | 'LPAREN' | 'RPAREN' | 'LBRACKET' | 'RBRACKET' | 'COMMA' | 'PERIOD'
   | 'OPERATOR'
   | 'NEWLINE' | 'INDENT' | 'DEDENT' | 'EOF';
@@ -36,10 +38,39 @@ const KEYWORDS: Record<string, TokenType> = {
   '거짓': 'FALSE',
   '함수': 'FUNCTION',
   '반환한다': 'RETURN',
+  '크다': 'COMPARE_KEYWORD',
+  '작다': 'COMPARE_KEYWORD',
+  '크거나': 'COMPARE_KEYWORD',
+  '작거나': 'COMPARE_KEYWORD',
+  '같다': 'COMPARE_KEYWORD',
+  '다르다': 'COMPARE_KEYWORD',
 };
 
 // longest-first to avoid partial matches
 const PARTICLES = ['이라면', '으로', '에서', '라면', '이면', '은', '는', '이', '가', '을', '를', '와', '과', '의', '에', '도', '만', '로'];
+
+// Words that mark the right-hand side of a Korean comparison, e.g. "배보다", "배 랑 같다".
+// All four are recognized when written standalone (with a space, e.g. "배 와 같다").
+const COMPARE_MARKERS = ['보다', '와', '과', '랑'];
+// Only "보다" is safe to peel off a word fused with no space (e.g. "배보다") — "와"/"과"/"랑"
+// are single syllables that commonly end real nouns (사과, 사랑, 효과), so fusing them would
+// misparse those words. When used for comparisons, "와"/"과"/"랑" must be written with a space.
+const FUSED_COMPARE_MARKERS = ['보다'];
+
+// Safe particles: strip even if only 1 char remains
+const SAFE_PARTICLES = ['을', '를', '은', '는'];
+// Risky particles: require >=2 chars to remain (이/가/과/와/랑 commonly end actual Korean nouns)
+const RISKY_PARTICLES = ['이라면', '으로', '에서', '라면', '이면', '이', '가', '와', '과', '의', '에', '도', '만', '로', '랑'];
+
+export function stripParticle(word: string): string {
+  for (const p of SAFE_PARTICLES) {
+    if (word.endsWith(p) && word.length > p.length) return word.slice(0, word.length - p.length);
+  }
+  for (const p of RISKY_PARTICLES) {
+    if (word.endsWith(p) && word.length - p.length >= 2) return word.slice(0, word.length - p.length);
+  }
+  return word;
+}
 
 function isKorean(ch: string): boolean {
   const code = ch.charCodeAt(0);
@@ -155,11 +186,48 @@ export function tokenize(source: string): Token[] {
           continue;
         }
 
+        // Standalone comparison marker (e.g. after a number literal: "3000보다",
+        // or space-separated "배 와 같다") — checked before generic particle
+        // dropping since "와"/"과" would otherwise match PARTICLES first.
+        if (COMPARE_MARKERS.includes(word)) {
+          tokens.push({ type: 'THAN', value: word, line: lineNo });
+          continue;
+        }
+
         // Standalone particle (whole word is just a particle) — skip entirely
-        // Particle stripping from identifiers is handled by the parser at statement level
         if (PARTICLES.includes(word)) continue;
 
-        tokens.push({ type: 'IDENTIFIER', value: word, line: lineNo });
+        // A comparison predicate with an if-trigger fused on directly, e.g.
+        // "같다면" (같다 + 면), "크다면" (크다 + 면), "작거나같다면" etc.
+        const IF_TRIGGER_SUFFIXES = ['이라면', '라면', '이면', '면'];
+        let peeledTrigger = false;
+        for (const suf of IF_TRIGGER_SUFFIXES) {
+          if (word.endsWith(suf) && word.length > suf.length) {
+            const rest = word.slice(0, word.length - suf.length);
+            if (KEYWORDS[rest] === 'COMPARE_KEYWORD') {
+              tokens.push({ type: 'COMPARE_KEYWORD', value: rest, line: lineNo });
+              tokens.push({ type: 'IF_TRIGGER', value: suf, line: lineNo });
+              peeledTrigger = true;
+              break;
+            }
+          }
+        }
+        if (peeledTrigger) continue;
+
+        // A noun with a comparison marker fused on directly, e.g. "배보다"
+        let markedCompare = false;
+        for (const m of FUSED_COMPARE_MARKERS) {
+          if (word.endsWith(m) && word.length - m.length >= 1) {
+            const rest = word.slice(0, word.length - m.length);
+            tokens.push({ type: 'IDENTIFIER', value: stripParticle(rest), line: lineNo });
+            tokens.push({ type: 'THAN', value: m, line: lineNo });
+            markedCompare = true;
+            break;
+          }
+        }
+        if (markedCompare) continue;
+
+        tokens.push({ type: 'IDENTIFIER', value: stripParticle(word), line: lineNo });
         continue;
       }
 

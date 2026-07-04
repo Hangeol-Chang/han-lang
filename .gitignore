@@ -38,3 +38,5 @@ next-env.d.ts
 # vscode extension packaging output
 editors/vscode/*.vsix
 linguist
+
+.secret
