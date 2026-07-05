@@ -73,6 +73,16 @@ export default function IfElse() {
                     <tr><td><code>&gt;=</code></td><td>크거나 같다</td><td><code>(점수 &gt;= 60)</code></td></tr>
                 </tbody>
             </table>
+
+            <h2>예제 — 한국어 비교 표현</h2>
+            <p>기호 대신 <code>A가 B보다 ~하다</code> 형태의 한국어 서술어로도 조건을 쓸 수 있습니다. 자세한 표현 목록은 사이드바의 <strong>연산자</strong> 문서를 참고하세요.</p>
+            <CodeBlock>{`사과는 3 이다.
+배는 5 이다.
+만약 (사과가 배보다 작거나 같다) 면
+\t("사과를 사러 가야 해")를 출력한다.
+아니면
+\t("안 사도 돼")를 출력한다.`}</CodeBlock>
+            <CodeBlock variant="output">{`사과를 사러 가야 해`}</CodeBlock>
         </article>
     );
 }

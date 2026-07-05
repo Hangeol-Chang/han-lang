@@ -16,6 +16,9 @@
 # production
 /build
 
+# hanlang CLI build output
+/dist
+
 # misc
 .DS_Store
 *.pem
