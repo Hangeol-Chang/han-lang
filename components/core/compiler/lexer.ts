@@ -3,6 +3,7 @@ export type TokenType =
   | 'ASSIGN'      // 이다
   | 'DECLARE'     // 있다
   | 'PRINT'       // 출력한다
+  | 'INPUT'       // 입력받는다
   | 'IF'          // 만약
   | 'IF_TRIGGER'  // 라면, 이면, 이라면, 면
   | 'ELSE'        // 아니면
@@ -27,6 +28,7 @@ const KEYWORDS: Record<string, TokenType> = {
   '이다': 'ASSIGN',
   '있다': 'DECLARE',
   '출력한다': 'PRINT',
+  '입력받는다': 'INPUT',
   '만약': 'IF',
   '라면': 'IF_TRIGGER',
   '이면': 'IF_TRIGGER',

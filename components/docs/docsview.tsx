@@ -6,6 +6,7 @@ import Introduction from "./content/Introduction";
 import Variables from "./content/Variables";
 import DataTypes from "./content/DataTypes";
 import Print from "./content/Print";
+import Input from "./content/Input";
 import IfElse from "./content/IfElse";
 import While from "./content/While";
 import Arrays from "./content/Arrays";
@@ -19,6 +20,7 @@ const CONTENT: Record<SectionId, React.ReactNode> = {
     variables:    <Variables />,
     datatypes:    <DataTypes />,
     print:        <Print />,
+    input:        <Input />,
     ifelse:       <IfElse />,
     while:        <While />,
     arrays:       <Arrays />,

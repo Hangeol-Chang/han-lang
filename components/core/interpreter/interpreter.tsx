@@ -2,6 +2,15 @@ import type { Program, Statement, Expression, FunctionDecl } from '../compiler/p
 
 type Value = number | string | boolean | undefined | Value[];
 
+// Bridges the interpreter to whatever is driving it (the terminal UI, a test
+// harness, ...). write() streams output as it's produced instead of buffering
+// the whole run, and input() suspends execution until a value is supplied —
+// letting "입력받는다" read from a live console instead of a blocking modal.
+export interface InterpreterIO {
+  write(chunk: string): void;
+  input(label: string): Promise<string>;
+}
+
 class ReturnSignal {
   constructor(public value: Value) {}
 }
@@ -11,14 +20,14 @@ const MAX_CALL_DEPTH = 1000;
 export class Interpreter {
   private env: Map<string, Value> = new Map();
   private functions: Map<string, FunctionDecl> = new Map();
-  private output: string[] = [];
   private callDepth = 0;
+  private io!: InterpreterIO;
 
-  run(program: Program): string {
+  async run(program: Program, io: InterpreterIO): Promise<void> {
     this.env = new Map();
     this.functions = new Map();
-    this.output = [];
     this.callDepth = 0;
+    this.io = io;
 
     // Hoist top-level function declarations so they can be called before their textual position
     for (const stmt of program.body) {
@@ -26,48 +35,50 @@ export class Interpreter {
     }
 
     try {
-      this.execBlock(program.body);
+      await this.execBlock(program.body);
     } catch (e) {
       if (!(e instanceof ReturnSignal)) throw e;
     }
-    return this.output.join('');
   }
 
-  private execBlock(stmts: Statement[]): void {
+  private async execBlock(stmts: Statement[]): Promise<void> {
     for (const stmt of stmts) {
-      this.execStatement(stmt);
+      await this.execStatement(stmt);
     }
   }
 
-  private execStatement(stmt: Statement): void {
+  private async execStatement(stmt: Statement): Promise<void> {
     switch (stmt.type) {
       case 'Assign':
-        this.env.set(stmt.name, this.evalExpr(stmt.value));
+        this.env.set(stmt.name, await this.evalExpr(stmt.value));
         break;
       case 'Declare':
         this.env.set(stmt.name, undefined);
         break;
       case 'IndexAssign':
-        this.execIndexAssign(stmt.name, stmt.index, stmt.value);
+        await this.execIndexAssign(stmt.name, stmt.index, stmt.value);
         break;
       case 'Print':
-        this.execPrint(stmt.args);
+        await this.execPrint(stmt.args);
+        break;
+      case 'Input':
+        await this.execInput(stmt.targets);
         break;
       case 'If':
-        if (this.evalExpr(stmt.condition)) {
-          this.execBlock(stmt.body);
+        if (await this.evalExpr(stmt.condition)) {
+          await this.execBlock(stmt.body);
         } else if (stmt.elseBody.length > 0) {
-          this.execBlock(stmt.elseBody);
+          await this.execBlock(stmt.elseBody);
         }
         break;
       case 'While': {
         let guard = 0;
-        while (this.evalExpr(stmt.condition) && guard < 10000) {
-          this.execBlock(stmt.body);
+        while ((await this.evalExpr(stmt.condition)) && guard < 10000) {
+          await this.execBlock(stmt.body);
           guard++;
         }
         if (guard >= 10000) {
-          this.output.push('\n[오류: 무한 루프가 감지되어 실행을 중단했습니다]\n');
+          this.io.write('\n[오류: 무한 루프가 감지되어 실행을 중단했습니다]\n');
         }
         break;
       }
@@ -75,44 +86,79 @@ export class Interpreter {
         this.functions.set(stmt.name, stmt);
         break;
       case 'Return':
-        throw new ReturnSignal(this.evalExpr(stmt.value));
+        throw new ReturnSignal(await this.evalExpr(stmt.value));
       case 'ExprStatement':
-        this.evalExpr(stmt.expr);
+        await this.evalExpr(stmt.expr);
         break;
     }
   }
 
-  private execIndexAssign(name: string, indexExpr: Expression, valueExpr: Expression): void {
+  private async execIndexAssign(name: string, indexExpr: Expression, valueExpr: Expression): Promise<void> {
     const arr = this.env.get(name);
     if (!Array.isArray(arr)) throw new Error(`"${name}"는 배열이 아닙니다`);
-    const idx = Number(this.evalExpr(indexExpr));
+    const idx = Number(await this.evalExpr(indexExpr));
     if (idx < 0) throw new Error('인덱스는 0 이상이어야 합니다');
     if (idx > arr.length) throw new Error(`배열 범위를 벗어났습니다 (길이: ${arr.length}, 인덱스: ${idx})`);
-    arr[idx] = this.evalExpr(valueExpr);
+    arr[idx] = await this.evalExpr(valueExpr);
   }
 
-  private execPrint(args: Expression[]): void {
+  private async execPrint(args: Expression[]): Promise<void> {
     if (args.length === 0) {
-      this.output.push('\n');
+      this.io.write('\n');
       return;
     }
 
-    const first = this.evalExpr(args[0]);
+    const values: Value[] = [];
+    for (const a of args) values.push(await this.evalExpr(a));
+
+    const first = values[0];
 
     // printf-style: first arg is a string with % placeholders and extra args follow
-    if (typeof first === 'string' && args.length > 1 && first.includes('%')) {
+    if (typeof first === 'string' && values.length > 1 && first.includes('%')) {
       let argIdx = 1;
       const result = first.replace(/%[ds]/g, (match) => {
-        if (argIdx >= args.length) return match;
-        const val = this.evalExpr(args[argIdx++]);
+        if (argIdx >= values.length) return match;
+        const val = values[argIdx++];
         return match === '%d' ? Math.floor(Number(val)).toString() : this.formatValue(val);
       });
-      this.output.push(result);
+      this.io.write(result);
     } else {
       // Simple print: join all args with space and append newline
-      const parts = args.map(a => this.formatValue(this.evalExpr(a)));
-      this.output.push(parts.join(' ') + '\n');
+      const parts = values.map(v => this.formatValue(v));
+      this.io.write(parts.join(' ') + '\n');
     }
+  }
+
+  private async execInput(targets: Expression[]): Promise<void> {
+    for (const target of targets) {
+      const label = target.type === 'Identifier' ? target.name : this.describeInputTarget(target);
+      const raw = await this.io.input(label);
+      const value: Value = raw === '' ? undefined : (isNaN(Number(raw)) ? raw : Number(raw));
+      await this.assignToLValue(target, value);
+    }
+  }
+
+  private describeInputTarget(expr: Expression): string {
+    if (expr.type === 'Identifier') return expr.name;
+    if (expr.type === 'Index') return this.describeInputTarget(expr.array);
+    return '값';
+  }
+
+  private async assignToLValue(target: Expression, value: Value): Promise<void> {
+    if (target.type === 'Identifier') {
+      this.env.set(target.name, value);
+      return;
+    }
+    if (target.type === 'Index') {
+      const arr = await this.evalExpr(target.array);
+      if (!Array.isArray(arr)) throw new Error('배열이 아닌 값에 인덱스를 사용했습니다');
+      const idx = Number(await this.evalExpr(target.index));
+      if (idx < 0) throw new Error('인덱스는 0 이상이어야 합니다');
+      if (idx > arr.length) throw new Error(`배열 범위를 벗어났습니다 (길이: ${arr.length}, 인덱스: ${idx})`);
+      arr[idx] = value;
+      return;
+    }
+    throw new Error('"입력받는다"는 변수만 대상으로 할 수 있습니다');
   }
 
   private formatValue(v: Value): string {
@@ -121,7 +167,7 @@ export class Interpreter {
     return String(v);
   }
 
-  private evalExpr(expr: Expression): Value {
+  private async evalExpr(expr: Expression): Promise<Value> {
     switch (expr.type) {
       case 'Number': return expr.value;
       case 'String': return expr.value;
@@ -132,22 +178,28 @@ export class Interpreter {
         }
         return this.env.get(expr.name);
       }
-      case 'ArrayLiteral':
-        return expr.elements.map(e => this.evalExpr(e));
+      case 'ArrayLiteral': {
+        const elements: Value[] = [];
+        for (const e of expr.elements) elements.push(await this.evalExpr(e));
+        return elements;
+      }
       case 'Index': {
-        const arr = this.evalExpr(expr.array);
+        const arr = await this.evalExpr(expr.array);
         if (!Array.isArray(arr)) throw new Error('배열이 아닌 값에 인덱스를 사용했습니다');
-        const idx = Number(this.evalExpr(expr.index));
+        const idx = Number(await this.evalExpr(expr.index));
         if (idx < 0 || idx >= arr.length) {
           throw new Error(`배열 범위를 벗어났습니다 (길이: ${arr.length}, 인덱스: ${idx})`);
         }
         return arr[idx];
       }
-      case 'Call':
-        return this.callFunction(expr.name, expr.args.map(a => this.evalExpr(a)));
+      case 'Call': {
+        const args: Value[] = [];
+        for (const a of expr.args) args.push(await this.evalExpr(a));
+        return await this.callFunction(expr.name, args);
+      }
       case 'BinaryOp': {
-        const left = this.evalExpr(expr.left);
-        const right = this.evalExpr(expr.right);
+        const left = await this.evalExpr(expr.left);
+        const right = await this.evalExpr(expr.right);
         switch (expr.op) {
           case '+':
             return (typeof left === 'string' || typeof right === 'string')
@@ -172,7 +224,7 @@ export class Interpreter {
     }
   }
 
-  private callFunction(name: string, args: Value[]): Value {
+  private async callFunction(name: string, args: Value[]): Promise<Value> {
     // built-ins
     if (name === '길이') {
       const v = args[0];
@@ -198,7 +250,7 @@ export class Interpreter {
 
     let returnValue: Value = undefined;
     try {
-      this.execBlock(fn.body);
+      await this.execBlock(fn.body);
     } catch (e) {
       if (e instanceof ReturnSignal) {
         returnValue = e.value;
