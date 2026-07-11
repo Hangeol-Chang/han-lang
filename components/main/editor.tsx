@@ -2,7 +2,9 @@
 
 import { codeState } from "../../states/codeStates";
 import { outputState } from "../../states/outputState";
+import { pendingInputState, isRunningState } from "../../states/terminalIOState";
 import { run } from "../core/hanlang";
+import type { InterpreterIO } from "../core/hanlang";
 import { KeyboardEvent, useEffect, useState, useRef } from "react";
 import { useRecoilState, useSetRecoilState } from "recoil";
 
@@ -12,6 +14,8 @@ import Link from "next/link";
 export default function Editor() {
   const [code, setCode] = useRecoilState(codeState);
   const setOutput = useSetRecoilState(outputState);
+  const setPendingInput = useSetRecoilState(pendingInputState);
+  const [isRunning, setIsRunning] = useRecoilState(isRunningState);
   const [rows, setRows] = useState([1]);
   const [cursorLine, setCursorLine] = useState(1);
   const [codeSplited, setCodeSplited] = useState<string[]>(['']);
@@ -65,8 +69,22 @@ export default function Editor() {
     }
   };
 
-  const handleRun = () => {
-    setOutput(run(code));
+  const handleRun = async () => {
+    if (isRunning) return;
+    setOutput('');
+    setIsRunning(true);
+    const io: InterpreterIO = {
+      write: (chunk) => setOutput(prev => prev + chunk),
+      input: (label) => new Promise<string>((resolve) => {
+        setPendingInput({ label, resolve });
+      }),
+    };
+    try {
+      await run(code, io);
+    } finally {
+      setPendingInput(null);
+      setIsRunning(false);
+    }
   };
 
   const handleClear = () => {
@@ -93,8 +111,8 @@ export default function Editor() {
           }}>
             문서 보기
           </Link>
-          <Button variant="default" onClick={handleClear} style={{ marginRight: 4 }}>지우기</Button>
-          <Button variant="success" onClick={handleRun}>▶ 실행</Button>
+          <Button variant="default" onClick={handleClear} disabled={isRunning} style={{ marginRight: 4 }}>지우기</Button>
+          <Button variant="success" onClick={handleRun} disabled={isRunning}>{isRunning ? '실행 중...' : '▶ 실행'}</Button>
         </div>
       </div>
 

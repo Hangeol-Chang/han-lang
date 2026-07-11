@@ -7,6 +7,7 @@ export type SectionId =
     | "variables"
     | "datatypes"
     | "print"
+    | "input"
     | "ifelse"
     | "while"
     | "arrays"
@@ -20,6 +21,7 @@ const SECTIONS: { id: SectionId; label: string }[] = [
     { id: "variables",    label: "변수" },
     { id: "datatypes",    label: "자료형" },
     { id: "print",        label: "출력" },
+    { id: "input",        label: "입력" },
     { id: "ifelse",       label: "조건문 (if/else)" },
     { id: "while",        label: "반복문 (while)" },
     { id: "arrays",       label: "배열" },

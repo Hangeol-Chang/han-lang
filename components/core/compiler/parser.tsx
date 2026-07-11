@@ -19,6 +19,7 @@ export type Statement =
   | { type: 'Declare'; name: string }
   | { type: 'IndexAssign'; name: string; index: Expression; value: Expression }
   | { type: 'Print'; args: Expression[] }
+  | { type: 'Input'; targets: Expression[] }
   | { type: 'If'; condition: Expression; body: Statement[]; elseBody: Statement[] }
   | { type: 'While'; condition: Expression; body: Statement[] }
   | { type: 'FunctionDecl'; name: string; params: string[]; body: Statement[] }
@@ -112,6 +113,11 @@ export class Parser {
       return this.parseParenlessPrint();
     }
 
+    // 변수1[조사] 변수2[조사] ... 입력받는다. — paren-less input, e.g. "사과와 배를 입력받는다."
+    if (tok.type === 'IDENTIFIER' && this.isImplicitCallAhead('INPUT')) {
+      return this.parseParenlessInput();
+    }
+
     if (tok.type === 'IDENTIFIER') {
       return this.parseIdentifierStatement();
     }
@@ -153,6 +159,7 @@ export class Parser {
     const nextType = this.tokens[look]?.type;
     if (nextType === 'WHILE') return this.parseWhile();
     if (nextType === 'RETURN') return this.parseReturn();
+    if (nextType === 'INPUT') return this.parseInput();
     return this.parsePrint();
   }
 
@@ -257,6 +264,53 @@ export class Parser {
     if (this.peek().type === 'PERIOD') this.advance();
     this.skipNewlines();
     return { type: 'Print', args };
+  }
+
+  // A variable reference that can receive a value: IDENTIFIER or IDENTIFIER[index][index]...
+  private parseInputTarget(): Expression {
+    const tok = this.peek();
+    if (tok.type !== 'IDENTIFIER') {
+      throw new Error(`${tok.line}번 줄: "입력받는다"는 변수만 대상으로 할 수 있습니다`);
+    }
+    this.advance();
+    let node: Expression = { type: 'Identifier', name: tok.value as string };
+    while (this.peek().type === 'LBRACKET') {
+      this.advance();
+      const index = this.parseExpr();
+      this.expect('RBRACKET');
+      node = { type: 'Index', array: node, index };
+    }
+    return node;
+  }
+
+  // (변수1, 변수2, ...) 입력받는다.
+  private parseInput(): Statement {
+    this.expect('LPAREN');
+    const targets: Expression[] = [];
+    if (this.peek().type !== 'RPAREN') {
+      targets.push(this.parseInputTarget());
+      while (this.peek().type === 'COMMA') {
+        this.advance();
+        targets.push(this.parseInputTarget());
+      }
+    }
+    this.expect('RPAREN');
+    this.expect('INPUT');
+    if (this.peek().type === 'PERIOD') this.advance();
+    this.skipNewlines();
+    return { type: 'Input', targets };
+  }
+
+  // 변수1[조사] 변수2[조사] ... 입력받는다.
+  private parseParenlessInput(): Statement {
+    const targets: Expression[] = [this.parseInputTarget()];
+    while (this.peek().type !== 'INPUT') {
+      targets.push(this.parseInputTarget());
+    }
+    this.expect('INPUT');
+    if (this.peek().type === 'PERIOD') this.advance();
+    this.skipNewlines();
+    return { type: 'Input', targets };
   }
 
   // IDENTIFIER[+particle] 이다 VALUE. | IDENTIFIER[+particle] 있다.

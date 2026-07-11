@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
 import Editor from './editor';
 import Terminal from './terminal';
 import Button from '../Common/button';
@@ -9,13 +9,37 @@ type Direction = 'horizontal' | 'vertical';
 
 const MIN_RATIO = 0.15;
 const MAX_RATIO = 0.85;
+// 이 너비보다 좁으면 기본값으로 위아래(세로) 보기를 사용한다.
+const NARROW_BREAKPOINT = 700;
 
 export default function IdeLayout() {
     const [direction, setDirection] = useState<Direction>('horizontal');
     const [ratio, setRatio] = useState(0.5);
     const [dividerHovered, setDividerHovered] = useState(false);
+    const outerRef = useRef<HTMLDivElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const dragging = useRef(false);
+    const userOverride = useRef(false);
+
+    useEffect(() => {
+        const el = outerRef.current;
+        if (!el) return;
+
+        const applyResponsiveDirection = (width: number) => {
+            if (userOverride.current) return;
+            setDirection(width < NARROW_BREAKPOINT ? 'vertical' : 'horizontal');
+        };
+
+        const observer = new ResizeObserver(entries => {
+            for (const entry of entries) {
+                applyResponsiveDirection(entry.contentRect.width);
+            }
+        });
+        observer.observe(el);
+        applyResponsiveDirection(el.getBoundingClientRect().width);
+
+        return () => observer.disconnect();
+    }, []);
 
     const handlePointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
         e.preventDefault();
@@ -37,6 +61,7 @@ export default function IdeLayout() {
     }, []);
 
     const toggleDirection = () => {
+        userOverride.current = true;
         setDirection(d => d === 'horizontal' ? 'vertical' : 'horizontal');
         setRatio(0.5);
     };
@@ -54,7 +79,7 @@ export default function IdeLayout() {
     };
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <div ref={outerRef} style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             {/* Toolbar */}
             <div style={{
                 display: 'flex',
