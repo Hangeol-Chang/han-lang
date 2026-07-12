@@ -26,6 +26,7 @@ export interface Token {
 
 const KEYWORDS: Record<string, TokenType> = {
   '이다': 'ASSIGN',
+  '다': 'ASSIGN',      // 이다 축약형
   '있다': 'DECLARE',
   '출력한다': 'PRINT',
   '입력받는다': 'INPUT',
@@ -58,6 +59,20 @@ const COMPARE_MARKERS = ['보다', '와', '과', '랑'];
 // are single syllables that commonly end real nouns (사과, 사랑, 효과), so fusing them would
 // misparse those words. When used for comparisons, "와"/"과"/"랑" must be written with a space.
 const FUSED_COMPARE_MARKERS = ['보다'];
+
+// Adnominal (관형사형) endings of comparison predicates, e.g. "같은" modifying "동안" in
+// "(각도합이 360 보다 크거나 같은) 동안". Maps to the canonical 다-form so parseComparePredicate
+// doesn't need to know about both forms.
+const ADNOMINAL_COMPARE: Record<string, string> = {
+  '큰': '크다',
+  '작은': '작다',
+  '같은': '같다',
+  '다른': '다르다',
+};
+
+// Fused endings of the assignment copula, peeled off a word with no preceding space
+// (e.g. "각도합은 angle1 + angle2이다."). Longest first so "이다" wins over bare "다".
+const FUSED_ASSIGN_SUFFIXES = ['이다', '다'];
 
 // Safe particles: strip even if only 1 char remains
 const SAFE_PARTICLES = ['을', '를', '은', '는'];
@@ -188,6 +203,12 @@ export function tokenize(source: string): Token[] {
           continue;
         }
 
+        // Adnominal comparison predicate, e.g. "같은" → COMPARE_KEYWORD "같다"
+        if (ADNOMINAL_COMPARE[word]) {
+          tokens.push({ type: 'COMPARE_KEYWORD', value: ADNOMINAL_COMPARE[word], line: lineNo });
+          continue;
+        }
+
         // Standalone comparison marker (e.g. after a number literal: "3000보다",
         // or space-separated "배 와 같다") — checked before generic particle
         // dropping since "와"/"과" would otherwise match PARTICLES first.
@@ -228,6 +249,19 @@ export function tokenize(source: string): Token[] {
           }
         }
         if (markedCompare) continue;
+
+        // A value/identifier with the assign copula fused on directly, e.g. "angle2이다"
+        let markedAssign = false;
+        for (const suf of FUSED_ASSIGN_SUFFIXES) {
+          if (word.endsWith(suf) && word.length - suf.length >= 1) {
+            const rest = word.slice(0, word.length - suf.length);
+            tokens.push({ type: 'IDENTIFIER', value: stripParticle(rest), line: lineNo });
+            tokens.push({ type: 'ASSIGN', value: suf, line: lineNo });
+            markedAssign = true;
+            break;
+          }
+        }
+        if (markedAssign) continue;
 
         tokens.push({ type: 'IDENTIFIER', value: stripParticle(word), line: lineNo });
         continue;
