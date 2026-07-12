@@ -212,6 +212,11 @@ export class Interpreter {
             if (r === 0) throw new Error('0으로 나눌 수 없습니다');
             return Number(left) / r;
           }
+          case '%': {
+            const r = Number(right);
+            if (r === 0) throw new Error('0으로 나눌 수 없습니다');
+            return Number(left) % r;
+          }
           case '<': return Number(left) < Number(right);
           case '>': return Number(left) > Number(right);
           case '==': return left === right;
@@ -230,6 +235,25 @@ export class Interpreter {
       const v = args[0];
       if (Array.isArray(v) || typeof v === 'string') return v.length;
       throw new Error('길이() 는 배열 또는 문자열에만 사용할 수 있습니다');
+    }
+
+    if (name === '정수') {
+      const n = Math.trunc(Number(args[0]));
+      if (Number.isNaN(n)) throw new Error(`정수()로 변환할 수 없는 값: ${this.formatValue(args[0])}`);
+      return n;
+    }
+    if (name === '실수') {
+      const n = Number(args[0]);
+      if (Number.isNaN(n)) throw new Error(`실수()로 변환할 수 없는 값: ${this.formatValue(args[0])}`);
+      return n;
+    }
+    if (name === '문자열') {
+      return this.formatValue(args[0]);
+    }
+    if (name === '논리') {
+      const v = args[0];
+      if (typeof v === 'string') return v !== '' && v !== '거짓';
+      return Boolean(v);
     }
 
     const fn = this.functions.get(name);

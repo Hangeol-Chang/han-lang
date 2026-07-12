@@ -179,7 +179,7 @@ export function tokenize(source: string): Token[] {
       }
 
       // Single-char operators
-      if (['+', '-', '*', '/', '<', '>'].includes(ch)) {
+      if (['+', '-', '*', '/', '%', '<', '>'].includes(ch)) {
         tokens.push({ type: 'OPERATOR', value: ch, line: lineNo });
         pos++;
         continue;

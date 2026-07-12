@@ -442,7 +442,7 @@ export class Parser {
 
   private parseMulDiv(): Expression {
     let left = this.parseUnary();
-    while (this.peek().type === 'OPERATOR' && ['*', '/'].includes(this.peek().value as string)) {
+    while (this.peek().type === 'OPERATOR' && ['*', '/', '%'].includes(this.peek().value as string)) {
       const op = this.advance().value as string;
       left = { type: 'BinaryOp', op, left, right: this.parseUnary() };
     }
