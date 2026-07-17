@@ -11,6 +11,7 @@ export type Expression =
   | { type: 'Identifier'; name: string }
   | { type: 'BinaryOp'; op: string; left: Expression; right: Expression }
   | { type: 'ArrayLiteral'; elements: Expression[] }
+  | { type: 'DictLiteral'; entries: [Expression, Expression][] }
   | { type: 'Index'; array: Expression; index: Expression }
   | { type: 'Call'; name: string; args: Expression[] };
 
@@ -22,8 +23,10 @@ export type Statement =
   | { type: 'Input'; targets: Expression[] }
   | { type: 'If'; condition: Expression; body: Statement[]; elseBody: Statement[] }
   | { type: 'While'; condition: Expression; body: Statement[] }
+  | { type: 'For'; name: string; start: Expression; end: Expression; step?: Expression; body: Statement[] }
   | { type: 'FunctionDecl'; name: string; params: string[]; body: Statement[] }
   | { type: 'Return'; value: Expression }
+  | { type: 'Break' }
   | { type: 'ExprStatement'; expr: Expression };
 
 export type Program = { type: 'Program'; body: Statement[] };
@@ -95,16 +98,25 @@ export class Parser {
     if (tok.type === 'EOF' || tok.type === 'DEDENT') return null;
 
     if (tok.type === 'IF') return this.parseIf();
+    if (tok.type === 'BREAK') return this.parseBreak();
     if (tok.type === 'FUNCTION') return this.parseFunctionDecl();
     if (tok.type === 'LPAREN') return this.parseLParenStatement();
     if (tok.type === 'IDENTIFIER') {
       if (this.tokens[this.pos + 1]?.type === 'LBRACKET' && this.isIndexAssignAhead()) {
         return this.parseIndexAssign();
       }
-      // 함수이름(...) used standalone (no assignment) — a call statement for side effects
-      if (this.tokens[this.pos + 1]?.type === 'LPAREN') {
+      // 함수이름(...) used standalone (no assignment) — a call statement for side effects.
+      // Distinguished from "이름은 (...)를 동사한다 이다." (an assignment whose value
+      // happens to start with a parenthesized expression) by checking for ASSIGN ahead.
+      if (this.tokens[this.pos + 1]?.type === 'LPAREN' && this.isPlainCallAhead()) {
         return this.parseCallStatement();
       }
+    }
+
+    // 변수가 시작부터 끝까지 [스텝씩] 동안 — counted for-loop, same trailing "동안" as while
+    // so it reads as "while counting from A to B" rather than a self-contained sentence.
+    if (tok.type === 'IDENTIFIER' && this.isImplicitCallAhead('WHILE')) {
+      return this.parseFor();
     }
 
     // 인자1[조사] 인자2[조사] ... 출력한다. — paren-less call, e.g. "사과랑 배를 출력한다."
@@ -144,6 +156,26 @@ export class Parser {
     return this.tokens[look]?.type !== 'ASSIGN';
   }
 
+  // IDENTIFIER LPAREN ahead — true unless an ASSIGN or STRING_METHOD token appears at
+  // depth 0 before the statement ends, which means the LPAREN actually starts the value
+  // of an assignment (e.g. "결과는 (...)를 공백제거한다." or "...이다.") rather than a
+  // bare function call.
+  private isPlainCallAhead(): boolean {
+    let depth = 0;
+    let look = this.pos + 1; // at LPAREN
+    while (look < this.tokens.length) {
+      const t = this.tokens[look].type;
+      if (t === 'LPAREN' || t === 'LBRACKET') depth++;
+      else if (t === 'RPAREN' || t === 'RBRACKET') depth--;
+      else if (depth === 0) {
+        if (t === 'ASSIGN' || t === 'STRING_METHOD') return false;
+        if (t === 'NEWLINE' || t === 'PERIOD' || t === 'EOF' || t === 'DEDENT') return true;
+      }
+      look++;
+    }
+    return true;
+  }
+
   // Determine whether (…) starts a while, a print, or a return by peeking past the closing )
   private parseLParenStatement(): Statement {
     let depth = 0;
@@ -160,6 +192,7 @@ export class Parser {
     if (nextType === 'WHILE') return this.parseWhile();
     if (nextType === 'RETURN') return this.parseReturn();
     if (nextType === 'INPUT') return this.parseInput();
+    if (nextType === 'STRING_METHOD') return this.parseCallStatement();
     return this.parsePrint();
   }
 
@@ -192,6 +225,14 @@ export class Parser {
     if (this.peek().type === 'PERIOD') this.advance();
     this.skipNewlines();
     return { type: 'Return', value };
+  }
+
+  // 중단한다.
+  private parseBreak(): Statement {
+    this.expect('BREAK');
+    if (this.peek().type === 'PERIOD') this.advance();
+    this.skipNewlines();
+    return { type: 'Break' };
   }
 
   // 함수이름(args) — standalone call statement, no assignment
@@ -246,6 +287,36 @@ export class Parser {
     this.skipNewlines();
     const body = this.parseIndentedBlock();
     return { type: 'While', condition, body };
+  }
+
+  // Strips a subject particle (가/이/는/은) off the for-loop variable even when only
+  // 1 char remains (e.g. "i가" → "i") — safe here because this grammar slot is always
+  // immediately followed by FROM, unlike the general case stripParticle() guards against.
+  private static readonly FOR_VAR_PARTICLES = ['는', '은', '가', '이'];
+  private stripForVarParticle(word: string): string {
+    for (const p of Parser.FOR_VAR_PARTICLES) {
+      if (word.endsWith(p) && word.length > p.length) return word.slice(0, word.length - p.length);
+    }
+    return word;
+  }
+
+  // 변수가 시작부터 끝까지 [스텝씩] 동안
+  private parseFor(): Statement {
+    const name = this.stripForVarParticle(this.advance().value as string);
+    const start = this.parseExpr();
+    this.expect('FROM');
+    const end = this.parseExpr();
+    this.expect('TO');
+    let step: Expression | undefined;
+    if (this.peek().type !== 'WHILE') {
+      step = this.parseExpr();
+      this.expect('STEP');
+    }
+    this.expect('WHILE');
+    if (this.peek().type === 'PERIOD') this.advance();
+    this.skipNewlines();
+    const body = this.parseIndentedBlock();
+    return { type: 'For', name, start, end, step, body };
   }
 
   // (args) 출력한다.
@@ -326,7 +397,16 @@ export class Parser {
 
     // assignment: parse expression until ASSIGN keyword
     const value = this.parseExpr();
-    this.expect('ASSIGN');
+    // A verb-final call (e.g. "(...)를 공백제거한다") already ends the sentence on its
+    // own predicate, same as "출력한다"/"입력받는다" — a trailing "이다" is a duplicate
+    // ending and is rejected rather than silently accepted.
+    if (this.tokens[this.pos - 1]?.type === 'STRING_METHOD') {
+      if (this.peek().type === 'ASSIGN') {
+        throw new Error(`${this.peek().line}번 줄: 동사형 함수(${this.tokens[this.pos - 1].value}) 뒤에는 "이다"를 붙이지 않습니다`);
+      }
+    } else {
+      this.expect('ASSIGN');
+    }
     if (this.peek().type === 'PERIOD') this.advance();
     this.skipNewlines();
     return { type: 'Assign', name, value };
@@ -478,6 +558,26 @@ export class Parser {
       return { type: 'ArrayLiteral', elements };
     }
 
+    if (tok.type === 'LBRACE') {
+      this.advance();
+      const entries: [Expression, Expression][] = [];
+      if (this.peek().type !== 'RBRACE') {
+        const parseEntry = () => {
+          const key = this.parseExpr();
+          this.expect('COLON');
+          const value = this.parseExpr();
+          entries.push([key, value]);
+        };
+        parseEntry();
+        while (this.peek().type === 'COMMA') {
+          this.advance();
+          parseEntry();
+        }
+      }
+      this.expect('RBRACE');
+      return { type: 'DictLiteral', entries };
+    }
+
     if (tok.type === 'IDENTIFIER') {
       this.advance();
       let node: Expression = { type: 'Identifier', name: tok.value as string };
@@ -510,9 +610,26 @@ export class Parser {
 
     if (tok.type === 'LPAREN') {
       this.advance();
-      const expr = this.parseExpr();
+      const args: Expression[] = [];
+      if (this.peek().type !== 'RPAREN') {
+        args.push(this.parseExpr());
+        while (this.peek().type === 'COMMA') {
+          this.advance();
+          args.push(this.parseExpr());
+        }
+      }
       this.expect('RPAREN');
-      return expr;
+
+      // (args)를 동사한다 — verb-final call expression, e.g. ("  사과 ")를 공백제거한다.
+      if (this.peek().type === 'STRING_METHOD') {
+        const name = this.advance().value as string;
+        return { type: 'Call', name, args };
+      }
+
+      if (args.length !== 1) {
+        throw new Error(`${this.peek().line}번 줄: 괄호 안에 여러 값을 쓰려면 뒤에 동사가 와야 합니다`);
+      }
+      return args[0];
     }
     throw new Error(`${tok.line}번 줄: 예상치 못한 토큰 ${tok.type}(${tok.value})`);
   }

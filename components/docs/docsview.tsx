@@ -4,12 +4,14 @@ import { useState } from "react";
 import Sidebar, { SectionId } from "./sidebar";
 import Introduction from "./content/Introduction";
 import Variables from "./content/Variables";
-import DataTypes from "./content/DataTypes";
+import DataTypesBasic from "./content/DataTypesBasic";
+import Strings from "./content/Strings";
 import Print from "./content/Print";
 import Input from "./content/Input";
 import IfElse from "./content/IfElse";
 import While from "./content/While";
 import Arrays from "./content/Arrays";
+import Dictionaries from "./content/Dictionaries";
 import Functions from "./content/Functions";
 import Operators from "./content/Operators";
 import Comments from "./content/Comments";
@@ -18,12 +20,14 @@ import Examples from "./content/Examples";
 const CONTENT: Record<SectionId, React.ReactNode> = {
     introduction: <Introduction />,
     variables:    <Variables />,
-    datatypes:    <DataTypes />,
+    "datatypes-basic":   <DataTypesBasic />,
+    "datatypes-arrays":  <Arrays />,
+    "datatypes-strings": <Strings />,
+    "datatypes-dict":    <Dictionaries />,
     print:        <Print />,
     input:        <Input />,
     ifelse:       <IfElse />,
     while:        <While />,
-    arrays:       <Arrays />,
     functions:    <Functions />,
     operators:    <Operators />,
     comments:     <Comments />,

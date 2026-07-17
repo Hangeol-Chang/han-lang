@@ -1,6 +1,6 @@
 import type { Program, Statement, Expression, FunctionDecl } from '../compiler/parser';
 
-type Value = number | string | boolean | undefined | Value[];
+type Value = number | string | boolean | undefined | Value[] | Map<string | number, Value>;
 
 // Bridges the interpreter to whatever is driving it (the terminal UI, a test
 // harness, ...). write() streams output as it's produced instead of buffering
@@ -14,6 +14,8 @@ export interface InterpreterIO {
 class ReturnSignal {
   constructor(public value: Value) {}
 }
+
+class BreakSignal {}
 
 const MAX_CALL_DEPTH = 1000;
 
@@ -37,6 +39,7 @@ export class Interpreter {
     try {
       await this.execBlock(program.body);
     } catch (e) {
+      if (e instanceof BreakSignal) throw new Error('"중단한다"는 반복문 안에서만 사용할 수 있습니다');
       if (!(e instanceof ReturnSignal)) throw e;
     }
   }
@@ -74,7 +77,36 @@ export class Interpreter {
       case 'While': {
         let guard = 0;
         while ((await this.evalExpr(stmt.condition)) && guard < 10000) {
-          await this.execBlock(stmt.body);
+          try {
+            await this.execBlock(stmt.body);
+          } catch (e) {
+            if (e instanceof BreakSignal) break;
+            throw e;
+          }
+          guard++;
+        }
+        if (guard >= 10000) {
+          this.io.write('\n[오류: 무한 루프가 감지되어 실행을 중단했습니다]\n');
+        }
+        break;
+      }
+      case 'For': {
+        const start = Number(await this.evalExpr(stmt.start));
+        const end = Number(await this.evalExpr(stmt.end));
+        const step = stmt.step ? Number(await this.evalExpr(stmt.step)) : 1;
+        if (step === 0) throw new Error('반복 증가값(스텝)은 0이 될 수 없습니다');
+
+        let i = start;
+        let guard = 0;
+        while ((step > 0 ? i <= end : i >= end) && guard < 10000) {
+          this.env.set(stmt.name, i);
+          try {
+            await this.execBlock(stmt.body);
+          } catch (e) {
+            if (e instanceof BreakSignal) break;
+            throw e;
+          }
+          i += step;
           guard++;
         }
         if (guard >= 10000) {
@@ -87,6 +119,8 @@ export class Interpreter {
         break;
       case 'Return':
         throw new ReturnSignal(await this.evalExpr(stmt.value));
+      case 'Break':
+        throw new BreakSignal();
       case 'ExprStatement':
         await this.evalExpr(stmt.expr);
         break;
@@ -94,12 +128,18 @@ export class Interpreter {
   }
 
   private async execIndexAssign(name: string, indexExpr: Expression, valueExpr: Expression): Promise<void> {
-    const arr = this.env.get(name);
-    if (!Array.isArray(arr)) throw new Error(`"${name}"는 배열이 아닙니다`);
+    const target = this.env.get(name);
+    const value = await this.evalExpr(valueExpr);
+    if (target instanceof Map) {
+      const key = await this.evalExpr(indexExpr);
+      target.set(key as string | number, value);
+      return;
+    }
+    if (!Array.isArray(target)) throw new Error(`"${name}"는 배열 또는 사전이 아닙니다`);
     const idx = Number(await this.evalExpr(indexExpr));
     if (idx < 0) throw new Error('인덱스는 0 이상이어야 합니다');
-    if (idx > arr.length) throw new Error(`배열 범위를 벗어났습니다 (길이: ${arr.length}, 인덱스: ${idx})`);
-    arr[idx] = await this.evalExpr(valueExpr);
+    if (idx > target.length) throw new Error(`배열 범위를 벗어났습니다 (길이: ${target.length}, 인덱스: ${idx})`);
+    target[idx] = value;
   }
 
   private async execPrint(args: Expression[]): Promise<void> {
@@ -150,12 +190,17 @@ export class Interpreter {
       return;
     }
     if (target.type === 'Index') {
-      const arr = await this.evalExpr(target.array);
-      if (!Array.isArray(arr)) throw new Error('배열이 아닌 값에 인덱스를 사용했습니다');
+      const container = await this.evalExpr(target.array);
+      if (container instanceof Map) {
+        const key = await this.evalExpr(target.index);
+        container.set(key as string | number, value);
+        return;
+      }
+      if (!Array.isArray(container)) throw new Error('배열/사전이 아닌 값에 인덱스를 사용했습니다');
       const idx = Number(await this.evalExpr(target.index));
       if (idx < 0) throw new Error('인덱스는 0 이상이어야 합니다');
-      if (idx > arr.length) throw new Error(`배열 범위를 벗어났습니다 (길이: ${arr.length}, 인덱스: ${idx})`);
-      arr[idx] = value;
+      if (idx > container.length) throw new Error(`배열 범위를 벗어났습니다 (길이: ${container.length}, 인덱스: ${idx})`);
+      container[idx] = value;
       return;
     }
     throw new Error('"입력받는다"는 변수만 대상으로 할 수 있습니다');
@@ -164,6 +209,10 @@ export class Interpreter {
   private formatValue(v: Value): string {
     if (v === undefined) return '정의되지않음';
     if (Array.isArray(v)) return '[' + v.map(x => this.formatValue(x)).join(', ') + ']';
+    if (v instanceof Map) {
+      const entries = Array.from(v.entries()).map(([k, val]) => `${this.formatValue(k)} : ${this.formatValue(val)}`);
+      return '{' + entries.join(', ') + '}';
+    }
     return String(v);
   }
 
@@ -183,14 +232,29 @@ export class Interpreter {
         for (const e of expr.elements) elements.push(await this.evalExpr(e));
         return elements;
       }
-      case 'Index': {
-        const arr = await this.evalExpr(expr.array);
-        if (!Array.isArray(arr)) throw new Error('배열이 아닌 값에 인덱스를 사용했습니다');
-        const idx = Number(await this.evalExpr(expr.index));
-        if (idx < 0 || idx >= arr.length) {
-          throw new Error(`배열 범위를 벗어났습니다 (길이: ${arr.length}, 인덱스: ${idx})`);
+      case 'DictLiteral': {
+        const dict = new Map<string | number, Value>();
+        for (const [k, v] of expr.entries) {
+          const key = await this.evalExpr(k);
+          dict.set(key as string | number, await this.evalExpr(v));
         }
-        return arr[idx];
+        return dict;
+      }
+      case 'Index': {
+        const container = await this.evalExpr(expr.array);
+        if (container instanceof Map) {
+          const key = await this.evalExpr(expr.index);
+          if (!container.has(key as string | number)) {
+            throw new Error(`사전에 없는 키입니다: ${this.formatValue(key)}`);
+          }
+          return container.get(key as string | number);
+        }
+        if (!Array.isArray(container)) throw new Error('배열/사전이 아닌 값에 인덱스를 사용했습니다');
+        const idx = Number(await this.evalExpr(expr.index));
+        if (idx < 0 || idx >= container.length) {
+          throw new Error(`배열 범위를 벗어났습니다 (길이: ${container.length}, 인덱스: ${idx})`);
+        }
+        return container[idx];
       }
       case 'Call': {
         const args: Value[] = [];
@@ -234,7 +298,8 @@ export class Interpreter {
     if (name === '길이') {
       const v = args[0];
       if (Array.isArray(v) || typeof v === 'string') return v.length;
-      throw new Error('길이() 는 배열 또는 문자열에만 사용할 수 있습니다');
+      if (v instanceof Map) return v.size;
+      throw new Error('길이() 는 배열, 문자열, 사전에만 사용할 수 있습니다');
     }
 
     if (name === '정수') {
@@ -250,6 +315,29 @@ export class Interpreter {
     if (name === '문자열') {
       return this.formatValue(args[0]);
     }
+    if (name === '공백제거한다') {
+      const s = args[0];
+      if (typeof s !== 'string') throw new Error('공백제거한다는 문자열에만 사용할 수 있습니다');
+      return s.trim();
+    }
+    if (name === '부분문자열화한다') {
+      const s = args[0];
+      if (typeof s !== 'string') throw new Error('부분문자열화한다는 문자열에만 사용할 수 있습니다');
+      const start = Number(args[1]);
+      const end = args.length > 2 ? Number(args[2]) : undefined;
+      return s.slice(start, end);
+    }
+    if (name === '시작한다') {
+      const s = args[0];
+      if (typeof s !== 'string') throw new Error('시작한다는 문자열에만 사용할 수 있습니다');
+      return s.startsWith(this.formatValue(args[1]));
+    }
+    if (name === '끝난다') {
+      const s = args[0];
+      if (typeof s !== 'string') throw new Error('끝난다는 문자열에만 사용할 수 있습니다');
+      return s.endsWith(this.formatValue(args[1]));
+    }
+
     if (name === '논리') {
       const v = args[0];
       if (typeof v === 'string') return v !== '' && v !== '거짓';
@@ -281,6 +369,7 @@ export class Interpreter {
       } else {
         this.env = savedEnv;
         this.callDepth--;
+        if (e instanceof BreakSignal) throw new Error('"중단한다"는 반복문 안에서만 사용할 수 있습니다');
         throw e;
       }
     }

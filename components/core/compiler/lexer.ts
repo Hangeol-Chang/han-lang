@@ -7,14 +7,19 @@ export type TokenType =
   | 'IF'          // 만약
   | 'IF_TRIGGER'  // 라면, 이면, 이라면, 면
   | 'ELSE'        // 아니면
-  | 'WHILE'       // 동안
+  | 'WHILE'       // 동안 — also terminates the for-loop header (변수가 A부터 B까지 동안)
+  | 'FROM'        // 부터
+  | 'TO'          // 까지
+  | 'STEP'        // 씩
   | 'TRUE'        // 진실
   | 'FALSE'       // 거짓
   | 'FUNCTION'    // 함수
   | 'RETURN'      // 반환한다
+  | 'BREAK'       // 중단한다
   | 'COMPARE_KEYWORD' // 크다, 작다, 크거나, 작거나, 같다, 다르다
   | 'THAN'        // 보다, 와, 과, 랑 (비교 대상을 표시하는 조사)
-  | 'LPAREN' | 'RPAREN' | 'LBRACKET' | 'RBRACKET' | 'COMMA' | 'PERIOD'
+  | 'STRING_METHOD' // 공백제거한다, 부분문자열화한다, ... — "(args)를 동사한다" 형태의 값 반환 함수
+  | 'LPAREN' | 'RPAREN' | 'LBRACKET' | 'RBRACKET' | 'LBRACE' | 'RBRACE' | 'COMMA' | 'PERIOD' | 'COLON'
   | 'OPERATOR'
   | 'NEWLINE' | 'INDENT' | 'DEDENT' | 'EOF';
 
@@ -37,16 +42,24 @@ const KEYWORDS: Record<string, TokenType> = {
   '면': 'IF_TRIGGER',
   '아니면': 'ELSE',
   '동안': 'WHILE',
+  '부터': 'FROM',
+  '까지': 'TO',
+  '씩': 'STEP',
   '진실': 'TRUE',
   '거짓': 'FALSE',
   '함수': 'FUNCTION',
   '반환한다': 'RETURN',
+  '중단한다': 'BREAK',
   '크다': 'COMPARE_KEYWORD',
   '작다': 'COMPARE_KEYWORD',
   '크거나': 'COMPARE_KEYWORD',
   '작거나': 'COMPARE_KEYWORD',
   '같다': 'COMPARE_KEYWORD',
   '다르다': 'COMPARE_KEYWORD',
+  '공백제거한다': 'STRING_METHOD',
+  '부분문자열화한다': 'STRING_METHOD',
+  '시작한다': 'STRING_METHOD',
+  '끝난다': 'STRING_METHOD',
 };
 
 // longest-first to avoid partial matches
@@ -70,9 +83,12 @@ const ADNOMINAL_COMPARE: Record<string, string> = {
   '다른': '다르다',
 };
 
-// Fused endings of the assignment copula, peeled off a word with no preceding space
-// (e.g. "각도합은 angle1 + angle2이다."). Longest first so "이다" wins over bare "다".
-const FUSED_ASSIGN_SUFFIXES = ['이다', '다'];
+// Fused ending of the assignment copula, peeled off a word with no preceding space
+// (e.g. "각도합은 angle1 + angle2이다."). Bare "다" is deliberately excluded here — nearly
+// every Korean dictionary-form verb ends in "다" (e.g. a user function "시도한다"), so
+// fusing it off any word would mangle identifiers. "다" as ASSIGN only applies when
+// written as its own space-separated word (see KEYWORDS above).
+const FUSED_ASSIGN_SUFFIXES = ['이다'];
 
 // Safe particles: strip even if only 1 char remains
 const SAFE_PARTICLES = ['을', '를', '은', '는'];
@@ -189,6 +205,9 @@ export function tokenize(source: string): Token[] {
       if (ch === ')') { tokens.push({ type: 'RPAREN', value: ')', line: lineNo }); pos++; continue; }
       if (ch === '[') { tokens.push({ type: 'LBRACKET', value: '[', line: lineNo }); pos++; continue; }
       if (ch === ']') { tokens.push({ type: 'RBRACKET', value: ']', line: lineNo }); pos++; continue; }
+      if (ch === '{') { tokens.push({ type: 'LBRACE', value: '{', line: lineNo }); pos++; continue; }
+      if (ch === '}') { tokens.push({ type: 'RBRACE', value: '}', line: lineNo }); pos++; continue; }
+      if (ch === ':') { tokens.push({ type: 'COLON', value: ':', line: lineNo }); pos++; continue; }
       if (ch === ',') { tokens.push({ type: 'COMMA', value: ',', line: lineNo }); pos++; continue; }
       if (ch === '.' || ch === ';') { tokens.push({ type: 'PERIOD', value: '.', line: lineNo }); pos++; continue; }
 
